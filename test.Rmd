@@ -1,0 +1,28 @@
+---
+title: "Summative assesment"
+author: "s1899215"
+date: "09/02/2019"
+output: pdf_document
+---
+
+```{r library, echo=FALSE,warning=FALSE, message=FALSE}
+library(ggplot2)
+library(readxl)
+library(knitr)
+```
+
+```{r load data, echo=FALSE, warning=FALSE, message = FALSE}
+biomarkerFile <- "biomarkers.xlsx"
+covariateFile <- "covariates.xlsx"
+
+biomarkerData <- read_xlsx(biomarkerFile)
+covariateData <- read_xlsx(covariateFile)
+```
+
+#Orignal data summary
+```{r original data}
+head(biomarkerData)
+summary(biomarkerData)
+kable(biomarkerData[1:5,])
+```
+
