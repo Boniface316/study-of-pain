@@ -74,7 +74,7 @@ covariateData.clean[which(covariateData.clean$Sex == 1),"Sex"] <- "Male"
 
 mCovdata <- melt(covariateData.clean, id.vars = c("patientID", "Age", "Sex", "Smoker")) 
 mCovdata[which(mCovdata$Smoker == 1), "Smoker"] <- "Smoker"
-mCovdata[which(mCovdata$Smoker == 0), "Smoker"] <- "Non-Smoker"
+mCovdata[which(mCovdata$Smoker == 2), "Smoker"] <- "Non-Smoker"
 ```
 
 
@@ -90,10 +90,6 @@ ggplot(data = covariateData.clean, aes(x = Age)) +
 
 ggsave(paste0(getwd(),"/plot/","Smokers-Age.jpg"))
 
-cat(" \n")
-cat(" \n")
-cat(" \n")
-
 ggplot(data = covariateData.clean, aes(x = Age)) +
   geom_bar(aes(fill = Sex)) +
   scale_x_continuous(breaks = seq(min(covariateData.clean$Age), max(covariateData.clean$Age), by = 5)) +
@@ -102,9 +98,6 @@ ggplot(data = covariateData.clean, aes(x = Age)) +
 
 ggsave(paste0(getwd(),"/plot/","Sex-Age.jpg"))
 
-cat(" \n")
-cat(" \n")
-cat(" \n")
 
 ggplot(mCovdata, aes(x = variable, y = value)) +
   geom_boxplot(fill = "#4271AE") +
@@ -160,6 +153,7 @@ ggplot(data = biomarker.melt, aes(x = WeeksObs, y = value, group = variable)) +
   xlab("Week observed") +
   ylab("Protein level") +
   ggtitle("Protein levels in blood samples at 0,6 and 52 weeks ")
+ggsave(paste0(getwd(),"/plot/","Protein-levels.jpg"))
 
 biomarkerScaled <- lapply(biomarkerData.clean[,c(-1,-2)], function(x) (x-min(x))/(max(x)-min(x)))
 biomarkerScaled <- do.call(cbind, biomarkerScaled)
@@ -178,6 +172,8 @@ ggplot(data = biomarkerScaledGroupedMelt, aes(x = WeeksObs, y = value, group = v
   xlab("Week observed") +
   ylab("Scaled protein level") +
   ggtitle("Scaled protein levels in blood samples at 0,6 and 52 weeks ")
+
+ggsave(paste0(getwd(),"/plot/","Scaled-protein-levels.jpg"))
 ```
 
 #Find reference for scaling
