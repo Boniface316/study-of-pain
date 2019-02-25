@@ -13,7 +13,42 @@ library(knitr)
 library(reshape2)
 library(gridExtra)
 library(stringr)
+library(dplyr)
 ```
+
+```{r function, echo = FALSE, warning = FALSE,message=FALSE}
+seperateBiomarkerData <- function(nameOfBiomarker, biomarkerData) {
+  seperatedData <- biomarkerDataClean[,nameOfBiomarker]
+  seperatedData <- cbind(biomarkerData[,2], seperatedData)
+  assign(nameOfBiomarker, seperatedData, envir = .GlobalEnv)
+}
+
+minMaxNorm <- function(x){
+  r <- (x-min(x))/(max(x)-min(x))
+  return(r)
+}
+
+transformEachBiomarker <- function(nameOfBiomarker) {
+  data <- get(nameOfBiomarker, envir = .GlobalEnv)
+  data <- data %>% 
+    mutate(logScale = log(data[,2]),
+           zscore = scale(data[,2]),
+           sqrt = sqrt(data[,2]),
+           squared = data[,2]^2,
+           minMax = minMaxNorm(data[,2]))
+  colnames(data)[2] <- "Raw"
+  assign(nameOfBiomarker, data, envir = .GlobalEnv)
+}
+
+meltBiomarkers <- function(nameOfBiomarker) {
+  data <- get(nameOfBiomarker, envir = .GlobalEnv)
+  data <- melt(data = data, id.vars = "WeeksObs")
+  nameOfData <- paste0(nameOfBiomarker,".Melt")
+  assign(nameOfData, data, envir = .GlobalEnv)
+}
+
+```
+
 
 ```{r load data, echo=FALSE, warning=FALSE, message = FALSE}
 biomarkerFile <- "biomarkers.xlsx"
@@ -26,142 +61,139 @@ biomarkerData <- read_xlsx(biomarkerFilePath)
 covariateData <- read_xlsx(covariateFilePath)
 ```
 
-#2 Exploring Raw data
+# 2 Exploring Raw data
 
-##2.1 Biomarker data
+## 2.1 Biomarker data
+
 ```{r biomarker data, echo = FALSE}
-biomarkerObs <- paste0("Number of observations: ", nrow(biomarkerData))
-biomarkerCols <- paste0("Number of columns (proteins tested): ", ncol(biomarkerData))
 kable(biomarkerData[1:5,], caption = " Biomarker raw data")
 na.Table <- colSums(is.na(biomarkerData))
 na.Table <- data.frame("Number of NA" = na.Table)
 kable(na.Table, caption = " NAs in Biomarker raw data")
-biomarkerData.clean <- biomarkerData[complete.cases(biomarkerData),]
-biomarker.clean.obs <- nrow(biomarkerData.clean)
-diff.clean.raw <- nrow(biomarkerData) - biomarker.clean.obs
+biomarkerDataClean <- biomarkerData[complete.cases(biomarkerData),]
 ```
 
 From the Biomarker data we observed the following:
 
-`r biomarkerObs`
+`r paste0("Number of observations: ", nrow(biomarkerData))`
 
-`r biomarkerCols`
+`r paste0("Number of columns (proteins tested): ", ncol(biomarkerData))`
 
-`r diff.clean.raw` rows contain NA values in the raw data. These rows are removed from the data, as the NAs can cause some errors in  our calcuation. 
+`r nrow(biomarkerData) - nrow(biomarkerData)` rows contain NA values in the raw data. These rows are removed from the data, as the NAs can cause some errors in  our calcuation. 
 
 The Biomaker column contains both patientID and the time the test was conducted. Therefore this needs to be extracted and registered in seperate columns. 
 
-##2.2 Patient data
+## 2.2 Patient data
 ```{r patient data, echo = FALSE}
-covariatesObs <- paste0("Number of observations: ", nrow(covariateData))
-covariatesCols <- paste0("Number of columns (proteins tested): ", ncol(covariateData))
 kable(covariateData[1:5,], caption = " covariates raw data")
 na.Table <- colSums(is.na(covariateData))
 na.Table <- data.frame("Number of NA" = na.Table)
 kable(na.Table, caption = " NAs in covariates raw data")
-covariateData.clean <- covariateData[complete.cases(covariateData),]
-covariates.clean.obs <- nrow(covariateData.clean)
-diff.clean.raw.cov <- nrow(covariateData) - covariates.clean.obs
+covariateDataClean <- covariateData[complete.cases(covariateData),]
 ```
 
-`r diff.clean.raw.cov` patients data are incomplete. Therefore this is removed from future calculation to avoid error or misrepresentation.
+`r paste0("Number of observations: ", nrow(covariateData))`
+`r paste0("Number of columns (proteins tested): ", ncol(covariateData))`
+`r nrow(covariateData) - nrow(covariateDataClean)` patients data are incomplete. Therefore this is removed from future calculation to avoid error or misrepresentation.
 
-##2.2.1 Patient data - simple analysis
+## 2.2.1 Patient data - simple analysis
 ```{r patient data clean, echo=FALSE}
-names(covariateData.clean) <- c("patientID", "Age", "Sex", "Smoker", "Inclusion", "12mos")
-covariateData.clean[which(covariateData.clean$Sex == 2),"Sex"] <- "Female" 
-covariateData.clean[which(covariateData.clean$Sex == 1),"Sex"] <- "Male"
+names(covariateDataClean) <- c("patientID", "Age", "Sex", "Smoker", "Inclusion", "12mos")
+covariateDataClean[which(covariateDataClean$Sex == 2),"Sex"] <- "Female" 
+covariateDataClean[which(covariateDataClean$Sex == 1),"Sex"] <- "Male"
+covariateDataClean[which(covariateDataClean$Smoker == 1), "Smoker"] <- "Smoker"
+covariateDataClean[which(covariateDataClean$Smoker == 2), "Smoker"] <- "Non-Smoker"
 
-mCovdata <- melt(covariateData.clean, id.vars = c("patientID", "Age", "Sex", "Smoker")) 
-mCovdata[which(mCovdata$Smoker == 1), "Smoker"] <- "Smoker"
-mCovdata[which(mCovdata$Smoker == 2), "Smoker"] <- "Non-Smoker"
+covariateDataCleanMelt <- melt(covariateDataClean, id.vars = c("patientID", "Age", "Sex", "Smoker")) 
 ```
 
 
 ```{r patient-data-simple-analysis, echo = FALSE, message=FALSE, comment=NA}
-ggplot(data = covariateData.clean, aes(x = Age)) +
+ggplot(data = covariateDataClean, aes(x = Age)) +
   geom_bar(aes(fill = as.factor(Smoker))) + 
   scale_fill_manual(values=c("#999999", "#E69F00"), 
                        name="Legend",
                        labels=c("Smoker", "Non-Smoker")) +
-  scale_x_continuous(breaks = seq(min(covariateData.clean$Age), max(covariateData.clean$Age), by = 5)) + 
+  scale_x_continuous(breaks = seq(min(covariateDataClean$Age), max(covariateDataClean$Age), by = 5)) + 
   xlab("Age") +
   ggtitle("Number of smokers in each Age group")
 
-ggsave(paste0(getwd(),"/plot/","Smokers-Age.jpg"))
+invisible(ggsave(paste0(getwd(),"/plot/","Smokers-Age.jpg")))
 
-ggplot(data = covariateData.clean, aes(x = Age)) +
+ggplot(data = covariateDataClean, aes(x = Age)) +
   geom_bar(aes(fill = Sex)) +
-  scale_x_continuous(breaks = seq(min(covariateData.clean$Age), max(covariateData.clean$Age), by = 5)) +
+  scale_x_continuous(breaks = seq(min(covariateDataClean$Age), max(covariateDataClean$Age), by = 5)) +
   xlab("Age") +
   ggtitle("Different sex in each age group")
 
-ggsave(paste0(getwd(),"/plot/","Sex-Age.jpg"))
+# ggsave(paste0(getwd(),"/plot/","Sex-Age.jpg"))
 
 
-ggplot(mCovdata, aes(x = variable, y = value)) +
+ggplot(covariateDataCleanMelt, aes(x = variable, y = value)) +
   geom_boxplot(fill = "#4271AE") +
   xlab("VAS") +
   ylab("VAS score") +
   ggtitle("Comparing VAS at inclusion and at 12 months")
 
-ggsave(paste0(getwd(),"/plot/","VAS-overall.jpg"))
+invisible(ggsave(paste0(getwd(),"/plot/","VAS-overall.jpg")))
 
-g1 <- ggplot(mCovdata, aes(x = variable, y = value, fill = Sex)) +
+VAS.ComparrisonSexGraph <- ggplot(covariateDataCleanMelt, aes(x = variable, y = value, fill = Sex)) +
   geom_boxplot() +
   xlab("VAS") +
   ylab("VAS score") +
   ggtitle("Comparing VAS on sex")
 
-ggsave(paste0(getwd(),"/plot/","VAS-Sex.jpg"))
+invisible(ggsave(paste0(getwd(),"/plot/","VAS-Sex.jpg")))
 
-g2 <- ggplot(mCovdata, aes(x = variable, y = value, fill = Smoker)) +
+VAS.ComparrisonSmokersGraph <- ggplot(covariateDataCleanMelt, aes(x = variable, y = value, fill = Smoker)) +
   geom_boxplot() +
   xlab("VAS") +
   ylab("VAS score") +
   ggtitle("Comparing VAS on smokers")
 
-ggsave(paste0(getwd(),"/plot/","VAS-Smokers.jpg"))
-grid.arrange(g1,g2,ncol = 2)
+invisible(ggsave(paste0(getwd(),"/plot/","VAS-Smokers.jpg")))
+grid.arrange(VAS.ComparrisonSexGraph,VAS.ComparrisonSmokersGraph,ncol = 2)
 ```
 
-#3 Cleaning/Manipulating Data
+# 3 Cleaning/Manipulating Data
 ```{r Biomarker-data-manupilation, echo=FALSE}
-biomarkerData.clean$PatientID <- as.factor(sub("\\-.*", "", biomarkerData.clean$Biomarker))
-extracted.time <- sub(".*-", "", biomarkerData.clean$Biomarker)
-extracted.time <- gsub("[^0-9.]", "",  extracted.time)
-extracted.time[which(extracted.time == 12)] <- 52
-biomarkerData.clean$WeeksObs <- as.factor(extracted.time)
+biomarkerDataClean$PatientID <- as.factor(sub("\\-.*", "", biomarkerDataClean$Biomarker))
+extractedTime <- sub(".*-", "", biomarkerDataClean$Biomarker)
+extractedTime <- gsub("[^0-9.]", "",  extractedTime)
+extractedTime[which(extractedTime == 12)] <- 52
+biomarkerDataClean$WeeksObs <- as.factor(extractedTime)
 
-biomarkerData.clean <- biomarkerData.clean[,c("PatientID","WeeksObs","IL-8","VEGF-A","OPG","TGF-beta-1","IL-6",
+biomarkerDataClean <- biomarkerDataClean[,c("PatientID","WeeksObs","IL-8","VEGF-A","OPG","TGF-beta-1","IL-6",
                                              "CXCL9","CXCL1","IL-18","CSF-1" )]
-kable(head(biomarkerData.clean))
+kable(head(biomarkerDataClean))
 ```
 
 ```{r Biomarker-graph-slope, echo = FALSE}
-biomarkerData.clean.grouped <- aggregate(biomarkerData.clean[,3:ncol(biomarkerData.clean)], list(biomarkerData.clean$WeeksObs), mean)
-namesBiomarkerData <- colnames(biomarkerData.clean[,2:ncol(biomarkerData.clean)])
+biomarkerDataCleanGrouped <- aggregate(biomarkerDataClean[,3:ncol(biomarkerDataClean)], list(biomarkerDataClean$WeeksObs), mean)
+ColNamesBiomarkerData <- colnames(biomarkerDataClean[,2:ncol(biomarkerDataClean)])
 
-colnames(biomarkerData.clean.grouped) <- namesBiomarkerData
-levels(biomarkerData.clean.grouped$WeeksObs) <- c("0","6","52")
+colnames(biomarkerDataCleanGrouped) <- ColNamesBiomarkerData
+levels(biomarkerDataCleanGrouped$WeeksObs) <- c("0","6","52")
 
-biomarker.melt <- melt(biomarkerData.clean.grouped, id.vars = "WeeksObs")
+biomarkerMelt <- melt(biomarkerDataCleanGrouped, id.vars = "WeeksObs")
 
-ggplot(data = biomarker.melt, aes(x = WeeksObs, y = value, group = variable)) +
+ggplot(data = biomarkerMelt, aes(x = WeeksObs, y = value, group = variable)) +
   geom_line(color = "blue") +
   facet_wrap(~variable) +
   xlab("Week observed") +
   ylab("Protein level") +
   ggtitle("Protein levels in blood samples at 0,6 and 52 weeks ")
-ggsave(paste0(getwd(),"/plot/","Protein-levels.jpg"))
 
-biomarkerScaled <- lapply(biomarkerData.clean[,c(-1,-2)], function(x) (x-min(x))/(max(x)-min(x)))
+invisible(ggsave(paste0(getwd(),"/plot/","Protein-levels.jpg")))
+
+biomarkerScaled <- lapply(biomarkerDataClean[,c(-1,-2)], function(x) (x-min(x))/(max(x)-min(x)))
 biomarkerScaled <- do.call(cbind, biomarkerScaled)
 biomarkerScaled <- data.frame(biomarkerScaled)
+colnames(biomarkerScaled) <- ColNamesBiomarkerData[-1]
 
-biomarkerScaled <- cbind(biomarkerData.clean[,2],biomarkerScaled)
-biomarkerScaledGrouped<- aggregate(biomarkerScaled[,2:ncol(biomarkerScaled)], list(biomarkerScaled$WeeksObs), mean)
-colnames(biomarkerScaledGrouped) <-  namesBiomarkerData
+biomarkerScaled <- cbind(biomarkerDataClean[,1:2],biomarkerScaled)
+biomarkerScaledGrouped<- aggregate(biomarkerScaled[,3:ncol(biomarkerScaled)], list(biomarkerScaled$WeeksObs), mean)
+colnames(biomarkerScaledGrouped) <-  ColNamesBiomarkerData
 levels(biomarkerScaledGrouped$WeeksObs) <- c("0","6","52")
 
 biomarkerScaledGroupedMelt <- melt(biomarkerScaledGrouped, id.vars = "WeeksObs")
@@ -173,7 +205,107 @@ ggplot(data = biomarkerScaledGroupedMelt, aes(x = WeeksObs, y = value, group = v
   ylab("Scaled protein level") +
   ggtitle("Scaled protein levels in blood samples at 0,6 and 52 weeks ")
 
-ggsave(paste0(getwd(),"/plot/","Scaled-protein-levels.jpg"))
+invisible(ggsave(paste0(getwd(),"/plot/","Scaled-protein-levels.jpg")))
 ```
 
-#Find reference for scaling
+[Reference for scaling](https://books.google.ca/books?id=0HJuBwAAQBAJ&pg=PA30&lpg=PA30&dq=data+mining+and+predictive+analytics+min(X)&source=bl&ots=ox5witbZxC&sig=ACfU3U34l8OoM7Zi1YisENbjSwRKlla8RQ&hl=en&sa=X&ved=2ahUKEwjc5tT4xLngAhUSX60KHSjsAMoQ6AEwCnoECAkQAQ# v=onepage&q=data%20mining%20and%20predictive%20analytics%20min(X)&f=false)
+
+```{r VAS-difference-covData, echo = FALSE, message=FALSE}
+covariateDataClean$PainDiff <- covariateDataClean$`12mos` - covariateDataClean$Inclusion
+covDataVAS.Increase <- covariateDataClean[which(covariateDataClean$PainDiff >= 0), ]
+
+kable(covDataVAS.Increase, caption = "Patients with increased VAS after 12 months")
+```
+
+
+`r nrow(covDataVAS.Increase) ` patients reported to have higher VAS compared to inclusion.
+`r length(which(covDataVAS.Increase$Sex == "Female"))` female patients and `r length(which(covDataVAS.Increase$Sex == "Male"))` male patients infomed drugs were not helpful
+`r length(which(covDataVAS.Increase$Smoker == "Smoker"))` Smokers and  
+`r length(which(covDataVAS.Increase$Smoker == "Non-Smoker")) ` non smokers
+
+
+```{r VAS-difference-covData-31-patients, echo=FALSE, message=FALSE}
+covariateDataVAS.IncreaseMelt <- melt(covDataVAS.Increase, id.vars = c("patientID", "Age", "Sex", "Smoker", "PainDiff"))
+
+ggplot(data = covariateDataVAS.IncreaseMelt, aes(x = variable, y = value))  +
+  geom_boxplot(fill = "#4271AE") +
+  xlab("VAS") +
+  ylab("VAS score") +
+  ggtitle("Comparing VAS of patients with increased VAS at 12 months")
+```
+
+
+```{r pain-distribution, echo=FALSE}
+painDiffMean<- aggregate(scale(covariateDataClean$PainDiff), list(covariateDataClean$Sex), mean)
+
+colnames(painDiffMean) <- c("Sex", "Mean")
+
+ggplot(covariateDataClean, aes(x=scale(PainDiff), colour=Sex)) +
+  geom_density() +
+  geom_vline(data=painDiffMean, aes(xintercept=Mean,  colour=Sex),
+             linetype="dashed", size=1) + 
+  xlab("Scaled Difference of VAS") +
+  ylab("Count") +
+  ggtitle("Distribution of Difference of VAS")
+
+```
+
+# Transform Biomarkers
+
+```{r transform-each-biomarker, message=FALSE, echo=FALSE,warning=FALSE}
+namesBiomaker  <- colnames(biomarkerData)[2:ncol(biomarkerData)]
+
+invisible(lapply(namesBiomaker, FUN = seperateBiomarkerData, biomarkerData = biomarkerDataClean))
+invisible(lapply(namesBiomaker,transformEachBiomarker))
+invisible(lapply(namesBiomaker, meltBiomarkers))
+
+ggplot(data = `IL-8.Melt`, aes(x = value, fill = WeeksObs)) +
+  geom_density(alpha = 0.25) +
+  facet_wrap(~variable, scales = "free") +
+  ggtitle("IL-8")
+
+
+ggplot(data = `VEGF-A.Melt`, aes(x = value, fill = WeeksObs)) +
+  geom_density(alpha = 0.25) +
+  facet_wrap(~variable, scales = "free") +
+  ggtitle("VEGF-A")
+
+ggplot(data = OPG.Melt, aes(x = value, fill = WeeksObs)) +
+  geom_density(alpha = 0.25) +
+  facet_wrap(~variable, scales = "free") +
+  ggtitle("OPG")
+
+ggplot(data = `TGF-beta-1.Melt`, aes(x = value, fill = WeeksObs)) +
+  geom_density(alpha = 0.25) +
+  facet_wrap(~variable, scales = "free") +
+  ggtitle("TGF-beta-1")
+
+ggplot(data = `IL-6.Melt`, aes(x = value, fill = WeeksObs)) +
+  geom_density(alpha = 0.25) +
+  facet_wrap(~variable, scales = "free") +
+  ggtitle("IL-6")
+
+ggplot(data = CXCL9.Melt, aes(x = value, fill = WeeksObs)) +
+  geom_density(alpha = 0.25) +
+  facet_wrap(~variable, scales = "free") +
+  ggtitle("CXCL9")
+
+ggplot(data = CXCL1.Melt, aes(x = value, fill = WeeksObs)) +
+  geom_density(alpha = 0.25) +
+  facet_wrap(~variable, scales = "free") +
+  ggtitle("CXCL1")
+
+
+ggplot(data = `IL-18.Melt`, aes(x = value, fill = WeeksObs)) +
+  geom_density(alpha = 0.25) +
+  facet_wrap(~variable, scales = "free") +
+  ggtitle("IL-18")
+
+ggplot(data = `CSF-1.Melt`, aes(x = value, fill = WeeksObs)) +
+  geom_density(alpha = 0.25) +
+  facet_wrap(~variable, scales = "free") +
+  ggtitle("CSF-1")
+```
+
+Based on all of these graphs, zscore transformation seems to be the most suitable transformation which provides us Normal distribution.
+
