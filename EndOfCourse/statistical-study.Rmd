@@ -309,3 +309,12 @@ ggplot(data = `CSF-1.Melt`, aes(x = value, fill = WeeksObs)) +
 
 Based on all of these graphs, zscore transformation seems to be the most suitable transformation which provides us Normal distribution.
 
+```{r merging data, echo=FALSE, message = FALSE}
+mergedBiomarkerCovariateData <- merge(biomarkerDataClean, covariateDataClean, by.x = "PatientID", by.y = "patientID")
+tableOfPatientDataWeeksObs <- table(mergedBiomarkerCovariateData$WeeksObs)
+tableOfPatientDataWeeksObs <- as.data.frame(tableOfPatientDataWeeksObs)
+colnames(tableOfPatientDataWeeksObs) <- c("WeeksObs", "Frequency")
+levels(tableOfPatientDataWeeksObs$WeeksObs) <- c("0","6","52") 
+kable(tableOfPatientDataWeeksObs, caption = "Frequency of observation")
+```
+
