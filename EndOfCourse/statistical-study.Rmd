@@ -5,7 +5,6 @@ date: "February 10, 2019"
 output: pdf_document
 ---
 
-
 ```{r library, echo=FALSE,warning=FALSE, message=FALSE}
 library(ggplot2)
 library(readxl)
@@ -13,47 +12,9 @@ library(knitr)
 library(reshape2)
 library(gridExtra)
 library(stringr)
-library(dplyr)
 library(data.table)
 ```
-
-```{r function, echo = FALSE, warning = FALSE,message=FALSE, eval=FALSE}
-#TODO: Not required 
-seperateBiomarkerData <- function(nameOfBiomarker, biomarkerData) {
-  seperatedData <- biomarkerDataClean[,nameOfBiomarker]
-  seperatedData <- cbind(biomarkerData[,2], seperatedData)
-  assign(nameOfBiomarker, seperatedData, envir = .GlobalEnv)
-}
-
-#TODO: Not required
-minMaxNorm <- function(x){
-  r <- (x-min(x))/(max(x)-min(x))
-  return(r)
-}
-
-#TODO: Not required
-transformEachBiomarker <- function(nameOfBiomarker) {
-  data <- get(nameOfBiomarker, envir = .GlobalEnv)
-  data <- data %>% 
-    mutate(logScale = log(data[,2]),
-           zscore = scale(data[,2]),
-           sqrt = sqrt(data[,2]),
-           squared = data[,2]^2,
-           minMax = minMaxNorm(data[,2]))
-  colnames(data)[2] <- "Raw"
-  assign(nameOfBiomarker, data, envir = .GlobalEnv)
-}
-
-#TODO:Not required
-meltBiomarkers <- function(nameOfBiomarker) {
-  data <- get(nameOfBiomarker, envir = .GlobalEnv)
-  data <- melt(data = data, id.vars = "WeeksObs")
-  nameOfData <- paste0(nameOfBiomarker,".Melt")
-  assign(nameOfData, data, envir = .GlobalEnv)
-}
-
-```
-
+# 1 Introduction
 
 ```{r load data, echo=FALSE, warning=FALSE, message = FALSE}
 biomarkerFile <- "biomarkers.xlsx"
@@ -73,12 +34,6 @@ covariateData <- as.data.table(covariateData)
 ## 2.1 Biomarker data
 
 ```{r biomarker data, echo = FALSE}
-#kable(biomarkerData[1:5,], caption = " Biomarker raw data")
-#na.Table <- colSums(is.na(biomarkerData))
-#na.Table <- data.frame("Number of NA" = na.Table)
-#kable(na.Table, caption = " NAs in Biomarker raw data")
-#biomarkerDataClean <- biomarkerData[complete.cases(biomarkerData),]
-
 #Number of observations in raw file
 BioMarkerNumOfObservationsRaw <- nrow(biomarkerData)
 
@@ -91,7 +46,6 @@ kable(biomarkerData[, lapply(.SD, function(x) sum(is.na(x))),
 
 #Remove rows that contains NA
 biomarkerData <- na.omit(biomarkerData)
-
 ```
 
 From the Biomarker data we observed the following:
@@ -104,23 +58,31 @@ From the Biomarker data we observed the following:
 
 `r BioMarkerNumOfObservationsRaw - nrow(biomarkerData)`  rows contain NA values in the raw data. These rows are removed from the data, as the NAs can cause some errors in  our calcuation. 
 
-The Biomaker column contains both patientID and the time the test was conducted. Therefore this needs to be extracted and registered in seperate columns. 
-
 ## 2.2 Patient data
-```{r patient data, echo = FALSE}
+
+```{r patient raw data, echo = FALSE}
 #Number of observations from Covariate data
 CovNumOfObservationsRaw <- nrow(covariateData)
 
 #Sample display of covariate data
 kable(covariateData[1:5,], caption = " Covariates raw data")
 
+```
+
+```{r patient data number of NAs, echo=FALSE}
 #Summary table of NAs in the data
 kable(covariateData[,lapply(.SD, function(x) sum(is.na(x))), 
                     .SDcols = 1:ncol(covariateData)], caption = "NAs in Covariate data")
 
 #Remove the rows that contains NAs
 covariateData <- na.omit(covariateData)
+
+#Convert PatientID into
+covariateData[,PatientID := factor(PatientID)]
 ```
+
+
+From the covariate data set we observed the following:
 
 `r paste0("Number of observations: ", CovNumOfObservationsRaw)`
 
@@ -128,246 +90,251 @@ covariateData <- na.omit(covariateData)
 `r paste0("Number of columns: ", ncol(covariateData))`
 
 
-`r nrow(biomarkerData) - CovNumOfObservationsRaw`
+`r CovNumOfObservationsRaw - nrow(covariateData)` number of rows removed from the orginal data
 
 ## 2.2.1 Patient data - simple analysis
 ```{r patient data clean, echo=FALSE}
+#Change the column names of the data
 setnames(covariateData, c("Sex (1=male, 2=female)", "Smoker (1=yes, 2=no)","VAS-at-inclusion", "Vas-12months"), c("Sex", "Smoker", "VAS.Inclusion", "VAS.12Months"))
 
+#Saving the names of the columns
+covariateColNames <- names(covariateData)
+
+#Change the Sex and Smoker columns from 1 and 2 into corresponding categorical variable
 covariateData[,Sex := factor(ifelse(Sex == 1, "Male", "Female"))]
 covariateData[,Smoker := factor(ifelse(Smoker == 1, "Yes", "No"))]
 
+#Reshape the data in order to plot easily
 covariateDataMelt <- melt(covariateData, id.vars = c("PatientID", "Age", "Sex", "Smoker"))
 ```
 
-```{r patient-data-simple-analysis, echo = FALSE, message=FALSE, comment=NA}
-ggplot(data = covariateData, aes(x = Age)) +
+```{r patient-data-age-sex-smoker, echo = FALSE, message=FALSE}
+#Plot number of smokers in each age group
+g1 <- ggplot(data = covariateData, aes(x = Age)) +
   geom_bar(aes(fill = Smoker)) + 
   xlab("Age") +
-  ggtitle("Number of smokers in each Age group")
+  ylab("Count") +
+  labs(caption= "Fig 1: number of smokers in each Age group") +
+  theme(plot.caption = element_text(hjust = 0))
 
-invisible(ggsave(paste0(getwd(),"/plot/","Smokers-Age.jpg")))
-
-ggplot(data = covariateData, aes(x = Age)) +
+g2 <- ggplot(data = covariateData, aes(x = Age)) +
   geom_bar(aes(fill = Sex)) +
   xlab("Age") +
-  ggtitle("Different sex in each age group")
+  ylab("Count") +
+  labs(caption= "Fig 2: Different sex in each age group") +
+  theme(plot.caption = element_text(hjust = 0))
 
-invisible(ggsave(paste0(getwd(),"/plot/","Sex-Age.jpg")))
+grid.arrange(g1,g2,ncol = 2)
+```
 
-ggplot(covariateDataCleanMelt, aes(x = variable, y = value)) +
+\vspace{30pt}
+
+```{r patient-data-VAS-comparrison, echo=FALSE, message=FALSE, comment=NA, fig.width=4, fig.height=4}
+
+#Box plot of VAS at inclusion and VAS at months
+ggplot(covariateDataMelt, aes(x = variable, y = value)) +
   geom_boxplot(fill = "#4271AE") +
   xlab("VAS") +
-  ylab("VAS score") +
-  ggtitle("Comparing VAS at inclusion and at 12 months")
+  ylab("VAS score") + 
+  labs(caption= "Fig 3: Comparing VAS at inclusion and at 12 months") +
+  theme(plot.caption = element_text(hjust = 0))
+```
 
-invisible(ggsave(paste0(getwd(),"/plot/","VAS-overall.jpg")))
+\vspace{30pt}
 
-VAS.ComparrisonSexGraph <- ggplot(covariateDataCleanMelt, aes(x = variable, y = value, fill = Sex)) +
+```{r patient-data-VAS-comparrison-Sex, echo=FALSE, message=FALSE, comment=NA}
+#VAS comparrison for sex
+VAS.ComparrisonSexGraph <- ggplot(covariateDataMelt, aes(x = variable, y = value, fill = Sex)) +
   geom_boxplot() +
   xlab("VAS") +
-  ylab("VAS score") +
-  ggtitle("Comparing VAS on sex")
+  ylab("VAS score") + 
+  labs(caption= "Fig 4: Comparing VAS on different sex") +
+  theme(plot.caption = element_text(hjust = 0), text = element_text(size=10))
 
-invisible(ggsave(paste0(getwd(),"/plot/","VAS-Sex.jpg")))
-
-VAS.ComparrisonSmokersGraph <- ggplot(covariateDataCleanMelt, aes(x = variable, y = value, fill = Smoker)) +
+#VAS comparrison for smokers
+VAS.ComparrisonSmokersGraph <- ggplot(covariateDataMelt, aes(x = variable, y = value, fill = Smoker)) +
   geom_boxplot() +
   xlab("VAS") +
-  ylab("VAS score") +
-  ggtitle("Comparing VAS on smokers")
+  ylab("VAS score") + 
+  labs(caption= "Fig 5: Comparing VAS on smokers") +
+  theme(plot.caption = element_text(hjust = 0), text = element_text(size=10))
 
-invisible(ggsave(paste0(getwd(),"/plot/","VAS-Smokers.jpg")))
+#Plpot the last two graphs side by side
 grid.arrange(VAS.ComparrisonSexGraph,VAS.ComparrisonSmokersGraph,ncol = 2)
 ```
 
 # 3 Cleaning/Manipulating Data
-```{r Biomarker-data-manupilation, echo=FALSE, eval=FALSE}
-biomarkerDataClean$PatientID <- as.factor(sub("\\-.*", "", biomarkerDataClean$Biomarker))
-extractedTime <- sub(".*-", "", biomarkerDataClean$Biomarker)
+
+```{r Biomarker-data-manupilation, echo=FALSE}
+#Extract the biomarkers 
+biomarkerNames <- colnames(biomarkerData)[2:ncol(biomarkerData)]
+#Extract the PatientID from Biomarker Column. Every character before the "-"
+biomarkerData[,PatientID :=as.factor(sub("\\-.*", "", biomarkerData$Biomarker))]
+#Extracting the characters right of "-" on Biomarker column
+extractedTime <- sub(".*-", "", biomarkerData$Biomarker)
+#Extract the number from the previous string
 extractedTime <- gsub("[^0-9.]", "",  extractedTime)
+#Replace 12 months with 52 weeks
 extractedTime[which(extractedTime == 12)] <- 52
-biomarkerDataClean$WeeksObs <- as.factor(extractedTime)
-levels(biomarkerDataClean$WeeksObs) <- c("0","6","52")
-
-biomarkerDataClean <- biomarkerDataClean[,c("PatientID","WeeksObs","IL-8","VEGF-A","OPG","TGF-beta-1","IL-6",
-                                             "CXCL9","CXCL1","IL-18","CSF-1" )]
-kable(head(biomarkerDataClean,10))
+#Create a new column called WeeksObs which contains the extracted time
+biomarkerData[,WeeksObs := factor(extractedTime, levels = c("0","6","52"))]
+#Re-arrange the columns
+biomarkerData <- setcolorder(biomarkerData, c("PatientID", "WeeksObs", biomarkerNames))
+#Remove biomarker column
+biomarkerData[,Biomarker := NULL]
+#Table of the biomarkerData
+kable(head(biomarkerData,10), caption = "Biomarker data after seperating the patient ID and week of observation")
 ```
 
-```{r Biomarker-graph-slope, echo = FALSE, eval=FALSE}
-biomarkerDataCleanGrouped <- aggregate(biomarkerDataClean[,3:ncol(biomarkerDataClean)], list(biomarkerDataClean$WeeksObs), mean)
-ColNamesBiomarkerData <- colnames(biomarkerDataClean[,2:ncol(biomarkerDataClean)])
 
-colnames(biomarkerDataCleanGrouped) <- ColNamesBiomarkerData
-#levels(biomarkerDataCleanGrouped$WeeksObs) <- c("0","6","52")
-
-biomarkerMelt <- melt(biomarkerDataCleanGrouped, id.vars = "WeeksObs")
-
-ggplot(data = biomarkerMelt, aes(x = WeeksObs, y = value, group = variable)) +
-  geom_line(color = "blue") +
-  facet_wrap(~variable) +
-  xlab("Week observed") +
-  ylab("Protein level") +
-  ggtitle("Protein levels in blood samples at 0,6 and 52 weeks ")
-
-invisible(ggsave(paste0(getwd(),"/plot/","Protein-levels.jpg")))
-
-biomarkerScaled <- lapply(biomarkerDataClean[,c(-1,-2)], function(x) (x-min(x))/(max(x)-min(x)))
-biomarkerScaled <- do.call(cbind, biomarkerScaled)
-biomarkerScaled <- data.frame(biomarkerScaled)
-colnames(biomarkerScaled) <- ColNamesBiomarkerData[-1]
-
-biomarkerScaled <- cbind(biomarkerDataClean[,1:2],biomarkerScaled)
-biomarkerScaledGrouped<- aggregate(biomarkerScaled[,3:ncol(biomarkerScaled)], list(biomarkerScaled$WeeksObs), mean)
-colnames(biomarkerScaledGrouped) <-  ColNamesBiomarkerData
-#levels(biomarkerScaledGrouped$WeeksObs) <- c("0","6","52")
-
-biomarkerScaledGroupedMelt <- melt(biomarkerScaledGrouped, id.vars = "WeeksObs")
-
-ggplot(data = biomarkerScaledGroupedMelt, aes(x = WeeksObs, y = value, group = variable)) +
-  geom_line(color = "blue") +
-  facet_wrap(~variable) +
-  xlab("Week observed") +
-  ylab("Scaled protein level") +
-  ggtitle("Scaled protein levels in blood samples at 0,6 and 52 weeks ")
-
-invisible(ggsave(paste0(getwd(),"/plot/","Scaled-protein-levels.jpg")))
+```{r Biomarker-weekObs-boxplot, echo = FALSE, fig.width=10, fig.height=10}
+#Reshape the data for ease of plotting
+biomarkerDataMelt <- melt(biomarkerData, id.vars = c("PatientID", "WeeksObs"))
+#Biomarker box plot of each biomarker at each week
+ggplot(data = biomarkerDataMelt, aes(x = WeeksObs, y = value)) + 
+  geom_boxplot(fill = "#FFD700") +
+  facet_wrap(~variable, scales = "free") +
+  xlab("Week of Observation") +
+  ylab("Biomarker level") + 
+  labs(caption= "Fig 6: Biomarker value over the course of week of observation") +
+  theme(plot.caption = element_text(hjust = 0), text = element_text(size=16))
 ```
+
+\vspace{30pt}
 
 [Reference for scaling](https://books.google.ca/books?id=0HJuBwAAQBAJ&pg=PA30&lpg=PA30&dq=data+mining+and+predictive+analytics+min(X)&source=bl&ots=ox5witbZxC&sig=ACfU3U34l8OoM7Zi1YisENbjSwRKlla8RQ&hl=en&sa=X&ved=2ahUKEwjc5tT4xLngAhUSX60KHSjsAMoQ6AEwCnoECAkQAQ# v=onepage&q=data%20mining%20and%20predictive%20analytics%20min(X)&f=false)
-
-```{r VAS-difference-covData, echo = FALSE, message=FALSE, eval=FALSE}
-covariateDataClean$PainDiff <- covariateDataClean$`12mos` - covariateDataClean$Inclusion
-covDataVAS.Increase <- covariateDataClean[which(covariateDataClean$PainDiff >= 0), ]
-
-kable(covDataVAS.Increase, caption = "Patients with increased VAS after 12 months")
+                        
+```{r VAS-difference-covData, echo = FALSE, message=FALSE}
+#Create a new column to get the difference of VAS at inclusion and 12 mos
+covariateData[,PainDiff := VAS.Inclusion - VAS.12Months]
+                        
+VAS.improvement <- covariateData[,Improved := ifelse(PainDiff > 0,"Pain improved","Pain did not improve")]
 ```
 
+# Question 1:
+Choose a question and explain why you chose that
 
-r nrow(covDataVAS.Increase)  patients reported to have higher VAS compared to inclusion.
+Among the patients that showed improvement, did their biomarker level change at each week of observation. If it did, we may be able to utilize biomarker level as an variable to track the progress of pain relief. 
 
-r length(which(covDataVAS.Increase$Sex == "Female")) female patients and r length(which(covDataVAS.Increase$Sex == "Male")) male patients infomed drugs were not helpful
-
-r length(which(covDataVAS.Increase$Smoker == "Smoker"))` Smokers and  `r length(which(covDataVAS.Increase$Smoker == "Non-Smoker"))  non smokers
-
-
-```{r VAS-difference-covData-31-patients, echo=FALSE, message=FALSE, eval=FALSE}
-covariateDataVAS.IncreaseMelt <- melt(covDataVAS.Increase, id.vars = c("patientID", "Age", "Sex", "Smoker", "PainDiff"))
-
-ggplot(data = covariateDataVAS.IncreaseMelt, aes(x = variable, y = value))  +
-  geom_boxplot(fill = "#4271AE") +
-  xlab("VAS") +
-  ylab("VAS score") +
-  ggtitle("Comparing VAS of patients with increased VAS at 12 months")
+```{r merging data, echo=FALSE, message = FALSE}
+#Left Join on PatientID
+mergedCovBioDT <- covariateData[biomarkerData, on = .(PatientID)]
+#Count number of observation for each PatientID 
+mergedCovBioDT <- mergedCovBioDT[,Count := .N,by = PatientID]
+#Exclude any PatientID that does not contain 3 different weeks of observation
+mergedCovBioDT <- mergedCovBioDT[Count == 3 & Improved == "Pain improved",]
+#Remove the column Count and Improved
+mergedCovBioDT[,`:=`(Count = NULL, Improved = NULL)]
+#Number of patients to conduct hypothesis test
+numOfPatientsForTest <- length(unique(mergedCovBioDT$PatientID))
 ```
 
+Total of `r numOfPatientsForTest` will be used for the hypothesis testing. These patients showed improvement for the medication and have biomarker level measured at all three occasion.
 
-```{r pain-distribution, echo=FALSE, eval=FALSE}
-painDiffMean<- aggregate(scale(covariateDataClean$PainDiff), list(covariateDataClean$Sex), mean)
+#Question 2:
+Hypothesis: mu is not the same for each week
+Parameters: 
+ Random variables: Levels of `r biomarkerNames`
+ Distribution: t-distribution since the population mu is unknown
+ n1 != n2
+#Question 3:
+Conduct your hypothesis test
+ Paired sample t-test to check the mu
+ Explain why paired
+ 
 
-colnames(painDiffMean) <- c("Sex", "Mean")
+```{r seperate-weeks, echo=FALSE, message=FALSE}
+#Seperate biomarkers according to week of observation
 
-ggplot(covariateDataClean, aes(x=scale(PainDiff), colour=Sex)) +
-  geom_density() +
-  geom_vline(data=painDiffMean, aes(xintercept=Mean,  colour=Sex),
-             linetype="dashed", size=1) + 
-  xlab("Scaled Difference of VAS") +
-  ylab("Count") +
-  ggtitle("Distribution of Difference of VAS")
+#Seperate week 0
+Week0 <- mergedCovBioDT[WeeksObs == 0]
+#Remove unwanted columns
+Week0 <- Week0[,`:=`(PatientID = NULL, Age = NULL, Sex = NULL, Smoker = NULL, VAS.Inclusion = NULL, VAS.12Months = NULL, PainDiff = NULL, WeeksObs = NULL)]
+
+#Seperate week 6
+Week6 <- mergedCovBioDT[WeeksObs == 6]
+#Remove unwanted columns
+Week6 <- Week6[,`:=`(PatientID = NULL, Age = NULL, Sex = NULL, Smoker = NULL, VAS.Inclusion = NULL, VAS.12Months = NULL, PainDiff = NULL, WeeksObs = NULL)]
+
+#Seperate week 52
+Week52 <- mergedCovBioDT[WeeksObs == 52]
+#Remove unwanted columns
+Week52 <- Week52[,`:=`(PatientID = NULL, Age = NULL, Sex = NULL, Smoker = NULL, VAS.Inclusion = NULL, VAS.12Months = NULL, PainDiff = NULL, WeeksObs = NULL)]
+```
+
+#Week0 ==  week6
+#Week6 == week52
+#Week0 == Week52
+
+```{r t-test, echo=FALSE, message=FALSE}
+t.test.Biomarkers <- function(data1,data2, biomarker,alpha = 0.05,...) {
+  #Extract the data of the biomarker from both data sets as a vector
+  data1 <- data1[, get(biomarker)]
+  data2 <- data2[, get(biomarker)]
+  #Calculate the confidence interval
+  confInterval <- 1-alpha
+  #Run the t-test 
+  res <- t.test(data1, data2, alternative = "two.sided", paired = TRUE, conf.level = confInterval)
+  #Extract the p.value
+  pValue <- res$p.value
+  #return p.value
+  return(pValue)
+}
+
+alpha <- 0.05
+#Running t-test for different combination of weeks for each biomarker
+list1 <- lapply(biomarkerNames, FUN = t.test.Biomarkers, data1 = Week0, data2 = Week6, alpha = alpha)
+list2 <- lapply(biomarkerNames, FUN = t.test.Biomarkers, data1 = Week6, data2 = Week52, alpha = alpha)
+list3 <- lapply(biomarkerNames, FUN = t.test.Biomarkers, data1 = Week0, data2 = Week52, alpha = alpha)
+
+#Amulgamate p.vales with the biomarker
+p.values <- data.table(Biomarker = biomarkerNames,
+                       C1 = do.call(rbind,list1),
+                       C2 = do.call(rbind, list2),
+                       C3 = do.call(rbind, list3)) 
+
+#Remaning the columns
+setnames(p.values, c("C1.V1","C2.V1","C3.V1"), c("Week 0 and Week 6", "Week 6 and Week 52", "Week 0 and Week 52"))
+
+#Display the table
+kable(p.values, caption = "p.vales for each hypothesis test")
+```
+
+```{r Ho rejection table, echo=FALSE, warning=FALSE, message=FALSE}
+#Redo the table names since they all have the same name
+setnames(p.values, c(2:4), c("C1", "C2", "C3"))
+
+p.values.temp <- as.data.frame(p.values)
+
+#Changing the numbers into accept and reject variables
+p.values[, `:=` (C1 = factor(ifelse(C1 < alpha, "Reject", "Accept")),
+                 C2 = factor(ifelse(C2 < alpha, "Reject", "Accept")),
+                 C3 = factor(ifelse(C3 < alpha, "Reject", "Accept")))]
+
+setnames(p.values, c("C1","C2","C3"), c("Week 0 and Week 6", "Week 6 and Week 52", "Week 0 and Week 52"))
+
+kable(p.values, caption = "Acception of p.values")
+#datatable(p.values) %>% formatStyle(
+#  'V6',
+#  backgroundColor = styleEqual(c(0, 1), c('gray', 'yellow'))
+#)
 
 ```
 
-# Transform Biomarkers
+# Interpretation of the results from the table
 
-```{r transform-each-biomarker, message=FALSE, echo=FALSE,warning=FALSE, eval=FALSE}
-namesBiomaker  <- colnames(biomarkerData)[2:ncol(biomarkerData)]
+#Conclusion
 
-invisible(lapply(namesBiomaker, FUN = seperateBiomarkerData, biomarkerData = biomarkerDataClean))
-invisible(lapply(namesBiomaker,transformEachBiomarker))
-invisible(lapply(namesBiomaker, meltBiomarkers))
+# Q3 a
+Potential problem of multiple testing
+Calculate the probability of making at least one type I error assuming that your tests are independent and that all null hypotheses are true.
 
-ggplot(data = `IL-8.Melt`, aes(x = value, fill = WeeksObs)) +
-  geom_density(alpha = 0.25) +
-  facet_wrap(~variable, scales = "free") +
-  ggtitle("IL-8")
-
-
-ggplot(data = `VEGF-A.Melt`, aes(x = value, fill = WeeksObs)) +
-  geom_density(alpha = 0.25) +
-  facet_wrap(~variable, scales = "free") +
-  ggtitle("VEGF-A")
-
-ggplot(data = OPG.Melt, aes(x = value, fill = WeeksObs)) +
-  geom_density(alpha = 0.25) +
-  facet_wrap(~variable, scales = "free") +
-  ggtitle("OPG")
-
-ggplot(data = `TGF-beta-1.Melt`, aes(x = value, fill = WeeksObs)) +
-  geom_density(alpha = 0.25) +
-  facet_wrap(~variable, scales = "free") +
-  ggtitle("TGF-beta-1")
-
-ggplot(data = `IL-6.Melt`, aes(x = value, fill = WeeksObs)) +
-  geom_density(alpha = 0.25) +
-  facet_wrap(~variable, scales = "free") +
-  ggtitle("IL-6")
-
-ggplot(data = CXCL9.Melt, aes(x = value, fill = WeeksObs)) +
-  geom_density(alpha = 0.25) +
-  facet_wrap(~variable, scales = "free") +
-  ggtitle("CXCL9")
-
-ggplot(data = CXCL1.Melt, aes(x = value, fill = WeeksObs)) +
-  geom_density(alpha = 0.25) +
-  facet_wrap(~variable, scales = "free") +
-  ggtitle("CXCL1")
-
-
-ggplot(data = `IL-18.Melt`, aes(x = value, fill = WeeksObs)) +
-  geom_density(alpha = 0.25) +
-  facet_wrap(~variable, scales = "free") +
-  ggtitle("IL-18")
-
-ggplot(data = `CSF-1.Melt`, aes(x = value, fill = WeeksObs)) +
-  geom_density(alpha = 0.25) +
-  facet_wrap(~variable, scales = "free") +
-  ggtitle("CSF-1")
-```
-
-Based on all of these graphs, zscore transformation seems to be the most suitable transformation which provides us Normal distribution.
-
-```{r merging data, echo=FALSE, message = FALSE, eval=FALSE}
-mergedBiomarkerCovariateData <- merge(biomarkerDataClean, covariateDataClean, by.x = "PatientID", by.y = "patientID")
-tableOfPatientDataWeeksObs <- table(mergedBiomarkerCovariateData$WeeksObs)
-tableOfPatientDataWeeksObs <- as.data.frame(tableOfPatientDataWeeksObs)
-colnames(tableOfPatientDataWeeksObs) <- c("WeeksObs", "Frequency")
-#levels(tableOfPatientDataWeeksObs$WeeksObs) <- c("0","6","52") 
-kable(tableOfPatientDataWeeksObs, caption = "Frequency of observation")
-```
-
-It appears that some patient's biomarker records are missing. In order to move forward, we will examine the patients that are missing the records.
-
-```{r patients-biomarker-missing-data,echo=FALSE, message=FALSE, eval=FALSE}
-#biomarkerByPatient <- aggregate(as.numeric(mergedBiomarkerCovariateData$PatientID), list(mergedBiomarkerCovariateData$PatientID), sum)
-#colnames(biomarkerByPatient) <- c("PatientID", "FreqObs")
-biomarkerByPatientCount <- data.table(sort(table(mergedBiomarkerCovariateData$PatientID)))
-setnames(biomarkerByPatientCount, c("V1", "N"), c("PatientID", "ObservationCount"))
-biomarkerByPatientCount <- biomarkerByPatientCount[ObservationCount == 3]
-
-mergedBiomarkerCovariateDT <- as.data.table(mergedBiomarkerCovariateData)
-mergedBiomarkerCovariateDT <- biomarkerByPatientCount[mergedBiomarkerCovariateDT, on = .(PatientID)]
-mergedBiomarkerCovariateDT <- mergedBiomarkerCovariateDT[!is.na(ObservationCount),]
-mergedBiomarkerCovariateDT[, ObservationCount := NULL]
-mergedBiomarkerCovariateDT <- mergedBiomarkerCovariateDT[order(PatientID, WeeksObs)]
-```
-
-```{r VAS greater than 5, echo=FALSE, message=FALSE, eval=FALSE}
-mergedBiomarkerCovariateDT[,HighVAS.Inclusion := factor(ifelse(Inclusion >=5, "Yes", "No"))]
-
-mergedBiomarkerCovariateDT[,HighVAS.After := factor(ifelse(`12mos` >=5, "Yes", "No"))]
-
-kable(summary(mergedBiomarkerCovariateDT$HighVAS.Inclusion), caption = "Greater than 5 or equal VAS at inclusion")
-kable(summary(mergedBiomarkerCovariateDT$HighVAS.After), caption = "Greater than 5 or equal VAS at inclusion")
-```
-
+#Q3 b
+Bonferroni correction:
+  What it is used for?
+  How to use it
+  Redo the test using this method
+                        
+                        
+                        
+                        
