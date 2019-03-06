@@ -1,7 +1,7 @@
 ---
-title: "Statistical study of backpain"
+title: "Statistical Study of Backpain"
 author: "s1899215"
-date: "February 10, 2019"
+date: "March 6, 2019"
 output:
   pdf_document: default
   word_document: default
@@ -50,7 +50,7 @@ kable(biomarkerData[1:5,], caption = " Biomarkers raw data")
 
 ```
 
-  Table 1 displays first 5 rows of Biomarkers dataset. There are total of `r BioMarkerNumOfObservationsRaw` observations and `r ncol(biomarkerData)` columns. Column 1 contains both the patientID and the time(week) when the blood sample was tested. The other coulmns contains the protein levels from the blood sample.  
+  Table 1 displays the first 5 rows of the Biomarkers data set. There are a total of `r BioMarkerNumOfObservationsRaw` observations and `r ncol(biomarkerData)` columns. Column 1 contains both the patient ID and the time(week) when the blood sample was tested. The other columns contain the protein levels from the blood sample.  
 
 ```{r biomarker-NA, echo=FALSE}
 #Table with NAs in the data
@@ -61,7 +61,7 @@ kable(biomarkerData[, lapply(.SD, function(x) sum(is.na(x))),
 biomarkerData <- na.omit(biomarkerData)
 ```
   
-  Table 2 summarizes the missing data in each column. Since missing data can prevent us from carrying on to the next step of analysis, we have removed any rows that are missing data. Total of `r BioMarkerNumOfObservationsRaw - nrow(biomarkerData)` rows were removed from Biomarkers dataset. 
+Table 2 summarizes the missing data in each column. Since missing data can prevent us from carrying on to the next step of analysis, we have removed any rows that are missing data. Total of `r BioMarkerNumOfObservationsRaw - nrow(biomarkerData)` rows were removed from Biomarkers dataset. 
 
 \vspace{120pt}
 
@@ -76,7 +76,7 @@ kable(covariateData[1:5,], caption = " Covariates raw data")
 
 ```
 
-  Table 3 displays first 5 rows of Covariate dataset. There are total of `r CovNumOfObservationsRaw` observations and `r ncol(covariateData)` columns. Each column are self explainatory. Last two column contains rating of their pain(VAS) at inclusion and pain at 12 months. VAS 0 means no pain and VAS 10 is the worst imaginable pain. This dataset was missing two rows of data and they were removed.
+Table 3 displays the first 5 rows of the Covariate data set. There are a total of `r CovNumOfObservationsRaw` observations and `r ncol(covariateData)` columns. Each column is self-evident. The last two columns contain ratings of patient pain (VAS) at inclusion, and at 12 months. VAS 0 means no pain and VAS 10 is intolerable pain. This data set was missing two rows of data, thus removed
 
 ```{r patient data number of NAs, echo=FALSE}
 #Summary table of NAs in the data
@@ -107,9 +107,9 @@ covariateData[,Smoker := factor(ifelse(Smoker == 1, "Yes", "No"))]
 covariateDataMelt <- melt(covariateData, id.vars = c("PatientID", "Age", "Sex", "Smoker"))
 ```
 
-  First lets explore the age, sex and smokers of the patients. This will give us an insight on whether any of these variables are unequally represented in the dataset. Unequal representation shapes the question we formulate for the hypothesis testing. Based on figures 1 and 2, all these variables are almost equally represented. 
+First, let us examine the patients based upon: age, sex, and smokers. This will give us an insight on whether any of these variables are unequally represented in the data set. Unequal representation shapes the question we will formulate for the hypothesis testing. Based on figures 1 and 2, all these variables are almost equally represented.
 
-```{r patient-data-age-sex-smoker, echo = FALSE, message=FALSE}
+```{r patient-data-age-sex-smoker, echo = FALSE, message=FALSE, fig.height=3}
 #Plot number of smokers in each age group
 g1 <- ggplot(data = covariateData, aes(x = Age)) +
   geom_bar(aes(fill = Smoker)) + 
@@ -128,9 +128,9 @@ g2 <- ggplot(data = covariateData, aes(x = Age)) +
 grid.arrange(g1,g2,ncol = 2)
 ```
 
-\vspace{30pt}
 
-```{r patient-data-VAS-comparrison, echo=FALSE, message=FALSE, comment=NA, fig.width=4, fig.height=4}
+
+```{r patient-data-VAS-comparrison, echo=FALSE, message=FALSE, comment=NA, fig.width=4, fig.height=3}
 
 #Box plot of VAS at inclusion and VAS at months
 ggplot(covariateDataMelt, aes(x = variable, y = value)) +
@@ -141,9 +141,9 @@ ggplot(covariateDataMelt, aes(x = variable, y = value)) +
   theme(plot.caption = element_text(hjust = 0))
 ```
 
-\vspace{30pt}
+\vspace{20pt}
 
-  Second we explore whether there was an change in VAS. Based on the histograms provided in figure 3, the VAS at 12 months appears to be significantly lower than VAS at inclusion. We need to explore further to under how VAS changed based on sex and smokers. Both figure 4 and 5 clearly shows that there is a significant change in the VAS for each category. 
+Second, let us examine whether there was any changes in VAS. Based on the histograms provided in figure 3, the VAS at 12 months appears to be significantly lower than VAS at inclusion. We need to explore further to under how VAS changed based on sex and smokers. Both figure 4 and 5 clearly shows that there is a significant change in the VAS for each category.
 
 ```{r patient-data-VAS-comparrison-Sex, echo=FALSE, message=FALSE, comment=NA}
 #VAS comparrison for sex
@@ -168,7 +168,7 @@ grid.arrange(VAS.ComparrisonSexGraph,VAS.ComparrisonSmokersGraph,ncol = 2)
 
 # 3 Cleaning/Manipulating Data
   
-  As per Table 1, we see that time of observation and patientID needs to be seperated from column 1. Also, the 12 months needs to be changed to 52 weeks in order to keep everything in the same units. Table 5 displays first 10 observations of Biomarkers dataset with the modification. 
+As per Table 1, we see that the time of observation and patient ID needs to be separated from column 1. Also, the 12 months needs to be changed to 52 weeks in order to maintain the same units. Table 5 displays the first 10 observations of the Biomarkers data set with the modification.
   
 ```{r Biomarker-data-manupilation, echo=FALSE}
 #Extract the biomarkers 
@@ -191,8 +191,8 @@ biomarkerData[,Biomarker := NULL]
 kable(head(biomarkerData,10), caption = "Biomarkers data after seperating the patient ID and week of observation")
 ```
 
-\vspace{30pt}
-  Box plots of each biomarker compared with each week of observation revealed that there are some changes to biomarker over the period of time. Figure 6 shows that almost all except "IL-6" have had changes between the weeks of observation. 
+
+Box plots of each biomarker compared with each week of observation revealed that there are some changes to biomarker over the period of time. Figure 6 shows that almost all except “IL-6” have had changes between the weeks of observation.
 
 ```{r Biomarker-weekObs-boxplot, echo = FALSE, fig.width=10, fig.height=10}
 #Reshape the data for ease of plotting
@@ -207,7 +207,6 @@ ggplot(data = biomarkerDataMelt, aes(x = WeeksObs, y = value)) +
   theme(plot.caption = element_text(hjust = 0), text = element_text(size=16))
 ```
 
-\vspace{30pt}
 
 ```{r VAS-difference-covData, echo = FALSE, message=FALSE}
 #Create a new column to get the difference of VAS at inclusion and 12 mos
@@ -235,7 +234,8 @@ mergedCovBioDT[,`:=`(Count = NULL, Improved = NULL)]
 numOfPatientsForTest <- length(unique(mergedCovBioDT$PatientID))
 ```
 
-  Simple analysis on the datasets revealed that there is a change in most biomarkers levels and improvement of VAS on some patients. During this research we are interested in finding change of biomarker level among the patients whose VAS levels have been reduced. Total of `r painImproved` patients reported that their VAS at 12 months is lower than inclusion. In order to conduct this research, both datasets are merged together. Any patientID that did not contain all of three different observations (Week 0, 6 and 52) were removed and only `r numOfPatientsForTest` patient's data are remaining for the test. Studying these patient's biomarker level may reveal a better understanding of relationship between biomarker levels and pain.
+Simple analysis on the data sets revealed that there was a change in most biomarker levels and improvement of VAS with some patients. During this research we are interested in finding changes of biomarker levels among the patients whose VAS levels have been reduced. A total of `r painImproved` patients reported that their VAS at 12 months was lower than at inclusion. In order to conduct this research, both data sets were merged together. Any patient ID that did not contain all three different observations (Week 0, 6 and 52) were removed and only `r numOfPatientsForTest` patient’s data remained for testing. Studying these patient’s biomarker levels may reveal a better understanding of the relationship between biomarker levels and pain.
+
 
 ## 4.2 Formulate the Question as Hypotheses
 
@@ -244,6 +244,7 @@ numOfPatientsForTest <- length(unique(mergedCovBioDT$PatientID))
 * Random variables: Biomarker levels at each observation week.
 
 * Distribution: Since these are continious random variables and the population $\mu$ is unknown, the distribution is assumed to be t-distribution. Furthermore, the biomarkers are measured twice during this test. Therefore these samples are paired.
+
 
 ## 4.3 Perform Suitable Hypothesis Test
 
@@ -319,7 +320,7 @@ kable(p.values, caption = "p.values for each hypothesis test")
 Pr <- (1- alpha)^nrow(p.values)
 ```
 
-When many hypotheses are tested, and each test has a specified Type I error probability, the probability that at least some Type I errors are committed increases, often sharply, with the number of hypotheses. This may have serious consequences if the set of conclusions must be evaluated as a whole [[1]](https://www-annualreviews-org.ezproxy.is.ed.ac.uk/doi/pdf/10.1146/annurev.ps.46.020195.003021). The probability of making at least one type I error assuming that our tests are independent and that null hypotheses are true is given by formula[[2]](https://www-tandfonline-com.ezproxy.is.ed.ac.uk/doi/pdf/10.1080/17457300.2016.1270401?needAccess=true) below:
+When many hypotheses are tested, and each test has a specified Type I error probability, the probability that at least some Type I errors are committed increases, often sharply, with the number of hypotheses. This may have serious consequences if the set of conclusions must be evaluated as a whole[[1]](https://www-annualreviews-org.ezproxy.is.ed.ac.uk/doi/pdf/10.1146/annurev.ps.46.020195.003021). The probability of making at least one type I error assuming that our tests are independent and that null hypotheses are true is given by formula[[2]](https://www-tandfonline-com.ezproxy.is.ed.ac.uk/doi/pdf/10.1080/17457300.2016.1270401?needAccess=true) below:
 
 Pr(at least one significant result | all k H0’s are true)
  
@@ -376,11 +377,11 @@ kable(p.values, caption = "p.values for each hypothesis test")
 rejectedBiomarkersTest2 <- p.values[`p.values of adjusted alpha` < alphaAdjusted,Biomarker,]
 ```
 
-We will now run the test again with the $\alpha_{adjusted}$ and reject null hypotheses when the p.value is below the $\alpha_{adjusted}$ value. The table 7 compares p.values from both hypotheses tests($\alpha = 0.5$ and $\alpha_{adjusted}$ = `r alphaAdjusted`). The results shows that with the Bonferroni Correction, L-8, VEGF-A, TGF-beta-1, CXCL1 and CSF-1 reject the null hypotheses. Using this results we can conclude that these biomarkers can be used to understand the patient's pain level. 
+We will now run the test again with the $\alpha_{adjusted}$ and reject null hypotheses when the p.value is below the $\alpha_{adjusted}$ value. The table 7 compares p.values from both hypotheses tests($\alpha = 0.5$ and $\alpha_{adjusted}$ = `r round(alphaAdjusted,3)`). The results shows that with the Bonferroni Correction, L-8, VEGF-A, TGF-beta-1, CXCL1 and CSF-1 reject the null hypotheses. Using this results we can conclude that these biomarkers can be used to understand the patient's pain level. 
 
 # 5 Question 2: Regression modelling
 
-  In section 2.2.1 we were able to find that both datasets displayed some sort of correlation. We will now build a model to predict VAS at month 12 using biomarkers at inclusion and covariates as explanatory variables. The model will be trained on 80% of data and it will be tested on the 20% of the data(out of sample).
+In section 2.2.1 we were able to find that both data sets displayed some sort of correlation. We will now build a model to predict VAS at month 12 using biomarkers at inclusion and covariates as explanatory variables. The model will be trained on 80% of data and it will be tested on the 20% of the data(out of sample).
   
 ## 5.1 Model Description
 
@@ -411,7 +412,7 @@ colNames <- c(colNames, "VAS.12Months")
 setcolorder(mergedData, colNames)
 ```
 
-* Explnatory variables : There are `r ncol(mergedData)-1` number of explanatory variables in the data set. They are Age,
+* Explnatory variables : There are `r ncol(mergedData)-1` explanatory variables in the data set. They are Age,
 Male, Smoker, VAS.Inclusion, IL-8, VEGF-A, OPG, TGF-beta-1, IL-6, CXCL9, CXCL1, IL-18 and CSF-1. Both "Sex" and "Smoker" variables are categorical and the rest are numerical variables. These variables are represented by $X_1,X_2,...X_{13}$
 
 * Response variable: `r colnames(mergedData)[ncol(mergedData)]` is a numerical variable which we will try to predict using the explanatory variables.
@@ -454,9 +455,9 @@ kable(fm1.table, caption = "Model description")
 
 * Adjusted R-Squared: `r round(summary(mod1)$adj.r.squared,2)`
 
-According to the table 9, VAS.Inclusion, OPG and IL-6 displaying a statistically significant relationship at the p < `r alpha` cut-off level. According to the R-squared value, the regression explains `r paste0(round(summary(mod1)$r.squared,2)*100,"%")` of the variablity of the y[[3]](https://www.springer.com/gp/book/9781461403906). Based on figure 7, the residuals does not display any sign of Normal distribution. Also according figure 8 the residuals seems to be independent. Figure 9 assures that there are no patterns between residuals and fitted values.
+According to the table 9, VAS.Inclusion, OPG and IL-6 displaying a statistically significant relationship at the p < `r alpha` cut-off level. According to the R-squared value, the regression explains `r paste0(round(summary(mod1)$r.squared,2)*100,"%")` of the variablity of the y[[3]](https://www.springer.com/gp/book/9781461403906). Based on figure 7, the residuals do not display any sign of Normal distribution. Also according figure 8 the residuals seems to be independent. Figure 9 assures that there are no patterns between residuals and fitted values.
 
-```{r modelfit graph, echo = FALSE, message=FALSE, warning=FALSE, comment=NA}
+```{r modelfit graph, echo = FALSE, message=FALSE, warning=FALSE, comment=NA, fig.height=3}
 #
 res <- as.data.frame(mod1$residuals)
 colnames(res) <- "Residuals"
@@ -466,6 +467,9 @@ ggplot(res, aes(x = Residuals)) +
   labs(caption= "Fig 7: Residual histogram") +
   theme(plot.caption = element_text(hjust = 0), text = element_text(size=16))
 
+```
+
+```{r residuals-index-fitted, echo=FALSE}
 g1 <- ggplot(res, aes(x = 1:nrow(res),y = Residuals)) + 
   geom_point() +
   xlab("Index") +
@@ -485,7 +489,7 @@ g2 <- ggplot(df, aes(x = .fitted, y = .resid)) +
 grid.arrange(g1,g2)
 ```
 
-We run build the prediction model again using only  VAS.Inclusion, OPG and IL-6 as the explanatory variables. Therefore our new equation would be:
+We built the prediction model again using only  VAS.Inclusion, OPG and IL-6 as the explanatory variables. Therefore our new equation would be:
 
 
 $y = \beta_0 + \beta_{VAS.Inclusion}X_1 + \beta_{OPG}X_2 + \beta_{IL-6}X_3$
@@ -516,11 +520,11 @@ Summary of the model fit:
 
 * Adjusted R-Squared: `r round(summary(mod2)$adj.r.squared,2)`
 
-Based on the results, the new Residual Standard Error and Adjusted R-Squared displayed some improvement, but not significant. The latest R-Squared is lower than previously calculated R-Squared value. R-Squared value increase when we add more explanatory variable. Since the new equation contains less explanatory variables compared to previous formula, the R-Squared value is reduced.    
+Based on the results, the new Residual Standard Error and Adjusted R-Squared displayed some improvement, but not significant. The latest R-Squared is lower than the previously calculated R-Squared value. R-Squared value increases when we add more explanatory variables. Since the new equation contains less explanatory variables compared to the previous formula, the R-Squared value is reduced.   
 
 ## 5.3 Testing the Model (out of sample)
 
-VAS.Inclusion, OPG and IL-6 will be used as explanatory variables to test the model as these variables displayed statistical significance and improvement in model fit. 
+VAS. Inclusion, OPG and IL-6 will be used as explanatory variables to test the model as these variables displayed statistical significance and improvement in model fit.
  
 ```{r test the model, echo=FALSE}
 y_hat1 <- predict(mod1, y_test)
@@ -545,14 +549,17 @@ The regression model appears to be a weak predictor. According to figure 10, the
 
 
 ## 5.4 Conclusion 
-In conclusion, the linear model we derived in section 5.2 is not useful to predict VAS at 12 months. Linear model with all 13 variables had a lower RSS compared to the linear model with only statistically significant variables. The statistical significane of the each explanatory variables change significally depending on the selected training data. Maybe more training data might give us a model that can predict with better accuracy. It is also possible that these variables could have no linear relationship. 
+
+
+In conclusion, the linear model we derived in section 5.2 is not useful to predict VAS at 12 months. Linear model with all 13 variables had a lower RSS compared to the linear model with only statistically significant variables. The statistical significance of each explanatory variable changes significantly depending on the selected training data. Perhaps more training data might give us a model that can predict with better accuracy. It is also possible that these variables could have no linear relationship.
 
 
 # 6 Final Remarks
 
-In this paper, we were able to identify the biomarkers that are associated with pain level in the patients. Since the probability of commiting type I error increases with multiple testing, the biomarkers were identified using Bonferroni Correction method. Biomarkers IL-8, VEGF-A, TGF-beta-1, CXCL1 and CSF-1 displayed statistical significance in the test. Therefore it can be concluded that these biomarkers can be tested to understand the pain level of a patient. 
 
-The linear regression prediction model was weaker in prediction. VAS.Inclusion, OPG and IL-6 were used as the explanatory variables to build the linear regression model. Eventhough these variables displayed statistical significance, their RSS and Adjusted R-Squared values were not far off from the model with all 13 variables. It maybe possible that these explanatory variables might have non-linear relationship or sample size of training data was not adequate to build a better model. The current results may not be favourable, but the future research may include non-linear prediction model to provide more accuracy.
+In this paper, we were able to identify the biomarkers that are associated with patient pain levels. Since the probability of committing type I error increases with multiple testing, the biomarkers were identified using Bonferroni Correction method. Biomarkers IL-8, VEGF-A, TGF-beta-1, CXCL1 and CSF-1 displayed statistical significance in the test. Therefore, it can be concluded that these biomarkers can be tested to understand the pain level of a patient.
+
+The linear regression prediction model was weaker in prediction. VAS. Inclusion, OPG, and IL-6 were used as the explanatory variables to build the linear regression model. Even though these variables displayed statistical significance, their RSS and Adjusted R-Squared values were not far off from the model with all 13 variables. It maybe possible that these explanatory variables might have non-linear relationship, or the sample size of training data was not adequate to build a better model. The current results may not be favourable, but future research may include non-linear prediction models to provide more accuracy.
 
 # References
 
