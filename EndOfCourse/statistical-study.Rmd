@@ -2,7 +2,9 @@
 title: "Statistical study of backpain"
 author: "s1899215"
 date: "February 10, 2019"
-output: pdf_document
+output:
+  pdf_document: default
+  word_document: default
 ---
 
 ```{r library, echo=FALSE,warning=FALSE, message=FALSE}
@@ -13,8 +15,13 @@ library(reshape2)
 library(gridExtra)
 library(stringr)
 library(data.table)
+library(xtable)
+library(broom)
 ```
 # 1 Introduction
+
+ The purpose of this study is to understand the medical conditions causing the pain. Two seperate datasets were gathered for this study. One dataset contains the general details of patients and a survey rating their pain at inclusion and at 12 month follow-up. This dataset is called "Covariates". The other dataset contains the levels of certain proteins taken from the blood sample of the patients. This dataset is called "Biomarkers". These two datasets are analyzed in order to further understand the relationship between biomarkers and pain.
+
 
 ```{r load data, echo=FALSE, warning=FALSE, message = FALSE}
 biomarkerFile <- "biomarkers.xlsx"
@@ -29,36 +36,36 @@ biomarkerData <- as.data.table(biomarkerData)
 covariateData <- as.data.table(covariateData)
 ```
 
-# 2 Exploring Raw data
+# 2 Exploring Raw Data
 
-## 2.1 Biomarker data
+## 2.1 Biomarkers Data
 
 ```{r biomarker data, echo = FALSE}
 #Number of observations in raw file
 BioMarkerNumOfObservationsRaw <- nrow(biomarkerData)
 
 #Sample display of the raw file
-kable(biomarkerData[1:5,], caption = " Biomarker raw data")
+kable(biomarkerData[1:5,], caption = " Biomarkers raw data")
 
+
+```
+
+  Table 1 displays first 5 rows of Biomarkers dataset. There are total of `r BioMarkerNumOfObservationsRaw` observations and `r ncol(biomarkerData)` columns. Column 1 contains both the patientID and the time(week) when the blood sample was tested. The other coulmns contains the protein levels from the blood sample.  
+
+```{r biomarker-NA, echo=FALSE}
 #Table with NAs in the data
 kable(biomarkerData[, lapply(.SD, function(x) sum(is.na(x))), 
-                    .SDcols = 1:ncol(biomarkerData)], caption = "NAs in Biomarker data")
+                    .SDcols = 1:ncol(biomarkerData)], caption = "Missing data in Biomarker dataset")
 
 #Remove rows that contains NA
 biomarkerData <- na.omit(biomarkerData)
 ```
+  
+  Table 2 summarizes the missing data in each column. Since missing data can prevent us from carrying on to the next step of analysis, we have removed any rows that are missing data. Total of `r BioMarkerNumOfObservationsRaw - nrow(biomarkerData)` rows were removed from Biomarkers dataset. 
 
-From the Biomarker data we observed the following:
+\vspace{120pt}
 
-`r paste0("Number of observations: ", BioMarkerNumOfObservationsRaw)`
-
-
-`r paste0("Number of columns (proteins tested): ", ncol(biomarkerData))`
-
-
-`r BioMarkerNumOfObservationsRaw - nrow(biomarkerData)`  rows contain NA values in the raw data. These rows are removed from the data, as the NAs can cause some errors in  our calcuation. 
-
-## 2.2 Patient data
+## 2.2 Covariates Data
 
 ```{r patient raw data, echo = FALSE}
 #Number of observations from Covariate data
@@ -69,10 +76,12 @@ kable(covariateData[1:5,], caption = " Covariates raw data")
 
 ```
 
+  Table 3 displays first 5 rows of Covariate dataset. There are total of `r CovNumOfObservationsRaw` observations and `r ncol(covariateData)` columns. Each column are self explainatory. Last two column contains rating of their pain(VAS) at inclusion and pain at 12 months. VAS 0 means no pain and VAS 10 is the worst imaginable pain. This dataset was missing two rows of data and they were removed.
+
 ```{r patient data number of NAs, echo=FALSE}
 #Summary table of NAs in the data
 kable(covariateData[,lapply(.SD, function(x) sum(is.na(x))), 
-                    .SDcols = 1:ncol(covariateData)], caption = "NAs in Covariate data")
+                    .SDcols = 1:ncol(covariateData)], caption = "Missing data in Covariate dataset")
 
 #Remove the rows that contains NAs
 covariateData <- na.omit(covariateData)
@@ -82,17 +91,7 @@ covariateData[,PatientID := factor(PatientID)]
 ```
 
 
-From the covariate data set we observed the following:
-
-`r paste0("Number of observations: ", CovNumOfObservationsRaw)`
-
-
-`r paste0("Number of columns: ", ncol(covariateData))`
-
-
-`r CovNumOfObservationsRaw - nrow(covariateData)` number of rows removed from the orginal data
-
-## 2.2.1 Patient data - simple analysis
+### 2.2.1 Covariate Data - Simple Analysis
 ```{r patient data clean, echo=FALSE}
 #Change the column names of the data
 setnames(covariateData, c("Sex (1=male, 2=female)", "Smoker (1=yes, 2=no)","VAS-at-inclusion", "Vas-12months"), c("Sex", "Smoker", "VAS.Inclusion", "VAS.12Months"))
@@ -107,6 +106,8 @@ covariateData[,Smoker := factor(ifelse(Smoker == 1, "Yes", "No"))]
 #Reshape the data in order to plot easily
 covariateDataMelt <- melt(covariateData, id.vars = c("PatientID", "Age", "Sex", "Smoker"))
 ```
+
+  First lets explore the age, sex and smokers of the patients. This will give us an insight on whether any of these variables are unequally represented in the dataset. Unequal representation shapes the question we formulate for the hypothesis testing. Based on figures 1 and 2, all these variables are almost equally represented. 
 
 ```{r patient-data-age-sex-smoker, echo = FALSE, message=FALSE}
 #Plot number of smokers in each age group
@@ -142,6 +143,8 @@ ggplot(covariateDataMelt, aes(x = variable, y = value)) +
 
 \vspace{30pt}
 
+  Second we explore whether there was an change in VAS. Based on the histograms provided in figure 3, the VAS at 12 months appears to be significantly lower than VAS at inclusion. We need to explore further to under how VAS changed based on sex and smokers. Both figure 4 and 5 clearly shows that there is a significant change in the VAS for each category. 
+
 ```{r patient-data-VAS-comparrison-Sex, echo=FALSE, message=FALSE, comment=NA}
 #VAS comparrison for sex
 VAS.ComparrisonSexGraph <- ggplot(covariateDataMelt, aes(x = variable, y = value, fill = Sex)) +
@@ -164,7 +167,9 @@ grid.arrange(VAS.ComparrisonSexGraph,VAS.ComparrisonSmokersGraph,ncol = 2)
 ```
 
 # 3 Cleaning/Manipulating Data
-
+  
+  As per Table 1, we see that time of observation and patientID needs to be seperated from column 1. Also, the 12 months needs to be changed to 52 weeks in order to keep everything in the same units. Table 5 displays first 10 observations of Biomarkers dataset with the modification. 
+  
 ```{r Biomarker-data-manupilation, echo=FALSE}
 #Extract the biomarkers 
 biomarkerNames <- colnames(biomarkerData)[2:ncol(biomarkerData)]
@@ -183,9 +188,11 @@ biomarkerData <- setcolorder(biomarkerData, c("PatientID", "WeeksObs", biomarker
 #Remove biomarker column
 biomarkerData[,Biomarker := NULL]
 #Table of the biomarkerData
-kable(head(biomarkerData,10), caption = "Biomarker data after seperating the patient ID and week of observation")
+kable(head(biomarkerData,10), caption = "Biomarkers data after seperating the patient ID and week of observation")
 ```
 
+\vspace{30pt}
+  Box plots of each biomarker compared with each week of observation revealed that there are some changes to biomarker over the period of time. Figure 6 shows that almost all except "IL-6" have had changes between the weeks of observation. 
 
 ```{r Biomarker-weekObs-boxplot, echo = FALSE, fig.width=10, fig.height=10}
 #Reshape the data for ease of plotting
@@ -202,19 +209,18 @@ ggplot(data = biomarkerDataMelt, aes(x = WeeksObs, y = value)) +
 
 \vspace{30pt}
 
-[Reference for scaling](https://books.google.ca/books?id=0HJuBwAAQBAJ&pg=PA30&lpg=PA30&dq=data+mining+and+predictive+analytics+min(X)&source=bl&ots=ox5witbZxC&sig=ACfU3U34l8OoM7Zi1YisENbjSwRKlla8RQ&hl=en&sa=X&ved=2ahUKEwjc5tT4xLngAhUSX60KHSjsAMoQ6AEwCnoECAkQAQ# v=onepage&q=data%20mining%20and%20predictive%20analytics%20min(X)&f=false)
-                        
 ```{r VAS-difference-covData, echo = FALSE, message=FALSE}
 #Create a new column to get the difference of VAS at inclusion and 12 mos
 covariateData[,PainDiff := VAS.Inclusion - VAS.12Months]
                         
 VAS.improvement <- covariateData[,Improved := ifelse(PainDiff > 0,"Pain improved","Pain did not improve")]
+
+painImproved <- length(VAS.improvement$PainDiff > 0)
 ```
 
-# Question 1:
-Choose a question and explain why you chose that
+# 4 Question 1: Statistical Hypothesis Testing
 
-Among the patients that showed improvement, did their biomarker level change at each week of observation. If it did, we may be able to utilize biomarker level as an variable to track the progress of pain relief. 
+## 4.1 Choosing a Question
 
 ```{r merging data, echo=FALSE, message = FALSE}
 #Left Join on PatientID
@@ -229,19 +235,23 @@ mergedCovBioDT[,`:=`(Count = NULL, Improved = NULL)]
 numOfPatientsForTest <- length(unique(mergedCovBioDT$PatientID))
 ```
 
-Total of `r numOfPatientsForTest` will be used for the hypothesis testing. These patients showed improvement for the medication and have biomarker level measured at all three occasion.
+  Simple analysis on the datasets revealed that there is a change in most biomarkers levels and improvement of VAS on some patients. During this research we are interested in finding change of biomarker level among the patients whose VAS levels have been reduced. Total of `r painImproved` patients reported that their VAS at 12 months is lower than inclusion. In order to conduct this research, both datasets are merged together. Any patientID that did not contain all of three different observations (Week 0, 6 and 52) were removed and only `r numOfPatientsForTest` patient's data are remaining for the test. Studying these patient's biomarker level may reveal a better understanding of relationship between biomarker levels and pain.
 
-#Question 2:
-Hypothesis: mu is not the same for each week
-Parameters: 
- Random variables: Levels of `r biomarkerNames`
- Distribution: t-distribution since the population mu is unknown
- n1 != n2
-#Question 3:
-Conduct your hypothesis test
- Paired sample t-test to check the mu
- Explain why paired
- 
+## 4.2 Formulate the Question as Hypotheses
+
+* Hypothesis: Did the $\mu$ of each biomarker remain constant between week 0 and week 52.
+
+* Random variables: Biomarker levels at each observation week.
+
+* Distribution: Since these are continious random variables and the population $\mu$ is unknown, the distribution is assumed to be t-distribution. Furthermore, the biomarkers are measured twice during this test. Therefore these samples are paired.
+
+## 4.3 Perform Suitable Hypothesis Test
+
+Hypothesis: 
+
+* H0: $\mu_{week 0}$ = $\mu_{week52}$
+
+* Ha: $\mu_{week 0}$ $\neq$ $\mu_{week52}$ (two-tailed)
 
 ```{r seperate-weeks, echo=FALSE, message=FALSE}
 #Seperate biomarkers according to week of observation
@@ -262,9 +272,7 @@ Week52 <- mergedCovBioDT[WeeksObs == 52]
 Week52 <- Week52[,`:=`(PatientID = NULL, Age = NULL, Sex = NULL, Smoker = NULL, VAS.Inclusion = NULL, VAS.12Months = NULL, PainDiff = NULL, WeeksObs = NULL)]
 ```
 
-#Week0 ==  week6
-#Week6 == week52
-#Week0 == Week52
+
 
 ```{r t-test, echo=FALSE, message=FALSE}
 t.test.Biomarkers <- function(data1,data2, biomarker,alpha = 0.05,...) {
@@ -283,58 +291,698 @@ t.test.Biomarkers <- function(data1,data2, biomarker,alpha = 0.05,...) {
 
 alpha <- 0.05
 #Running t-test for different combination of weeks for each biomarker
-list1 <- lapply(biomarkerNames, FUN = t.test.Biomarkers, data1 = Week0, data2 = Week6, alpha = alpha)
-list2 <- lapply(biomarkerNames, FUN = t.test.Biomarkers, data1 = Week6, data2 = Week52, alpha = alpha)
-list3 <- lapply(biomarkerNames, FUN = t.test.Biomarkers, data1 = Week0, data2 = Week52, alpha = alpha)
+list1 <- lapply(biomarkerNames, FUN = t.test.Biomarkers, data1 = Week0, data2 = Week52, alpha = alpha)
 
-#Amulgamate p.vales with the biomarker
-p.values <- data.table(Biomarker = biomarkerNames,
-                       C1 = do.call(rbind,list1),
-                       C2 = do.call(rbind, list2),
-                       C3 = do.call(rbind, list3)) 
+#Amulgamate p.values with the biomarker
+p.values <- data.table(Biomarker = biomarkerNames, C1 = do.call(rbind,list1)) 
 
 #Remaning the columns
-setnames(p.values, c("C1.V1","C2.V1","C3.V1"), c("Week 0 and Week 6", "Week 6 and Week 52", "Week 0 and Week 52"))
+setnames(p.values, c("C1.V1"), c("Week 0 and Week 52"))
+
+#Biomarker that have p.value lower than alpha
+rejectedBiomarkersTest1 <- p.values[`Week 0 and Week 52` < alpha,Biomarker]
+```
+
+The p-values of paired sample t.test for biomarkers for week 0 and week 52 with $\alpha$ = 0.05 are posted in table 6. Based on the results, p.values of IL-8, VEGF-A, OPG, TGF-beta-1, CXCL9, CXCL1, IL-18 and CSF-1 are below `r alpha`. Therefore these null hypotheses will be rejected. In other words, $\mu$ of these biomarkers have changed between week 0 and week 52. Therefore we can make an assumption that pain can be explained through these biomarkers. 
+
+```{r display table, echo=FALSE}
+#Display the table
+kable(p.values, caption = "p.values for each hypothesis test")
+```
+
+
+
+### 4.4.1 Potential Problem of Multiple Testing
+
+```{r calculate Pr, echo = FALSE, message=FALSE, warning=FALSE}
+#Calculating the pr of at least 1 type I error
+Pr <- (1- alpha)^nrow(p.values)
+```
+
+When many hypotheses are tested, and each test has a specified Type I error probability, the probability that at least some Type I errors are committed increases, often sharply, with the number of hypotheses. This may have serious consequences if the set of conclusions must be evaluated as a whole [[1]](https://www-annualreviews-org.ezproxy.is.ed.ac.uk/doi/pdf/10.1146/annurev.ps.46.020195.003021). The probability of making at least one type I error assuming that our tests are independent and that null hypotheses are true is given by formula[[2]](https://www-tandfonline-com.ezproxy.is.ed.ac.uk/doi/pdf/10.1080/17457300.2016.1270401?needAccess=true) below:
+
+Pr(at least one significant result | all k H0’s are true)
+ 
+ =  1 - Pr(no significant results | all k H0’s are true)
+ 
+ =  $1 - (1 - \alpha)^k$
+
+Where $\alpha$ = `r alpha` and k = number of tests = `r nrow(p.values)`
+ 
+Therefore:
+ 
+ Pr(at least one significant result | all k H0’s are true) = `r Pr`
+
+The probability of making at least one type I error is `r round(Pr,2)`
+
+```{r alpha adjusted, echo = FALSE, message= FALSE, warning=FALSE}
+alphaAdjusted = alpha/nrow(p.values)
+```
+
+
+### 4.4.2 Bonferroni Correction
+
+  Bonferroni correction is a classical approach to limit the possibility of getting a Type I error when testing multiple hypotheses[[3]](https://www-bmj-com.ezproxy.is.ed.ac.uk/content/bmj/349/bmj.g6284.full.pdf). This is achieved by adjusting the $\alpha$ level by dividing the $\alpha$ by the number of tests($n_{tests}$). In our test, the $\alpha_{adjusted}$ below:
+  
+  $\alpha_{adjusted} = \frac{\alpha}{n_{tests}}$
+  
+  Where $\alpha$ = `r alpha` and $n_{tests}$ = `r nrow(p.values)`
+  
+  Therefore $\alpha_{adjusted}$ =  `r round(alphaAdjusted,3)`
+  
+
+```{r Bonferronit-redo, echo=FALSE}
+#Saving the p.values from test into a new data.frame
+p.valuesTest1 <- as.data.frame(p.values)
+
+#Running t-test for different combination of weeks for each biomarker
+list1 <- lapply(biomarkerNames, FUN = t.test.Biomarkers, data1 = Week0, data2 = Week6, alpha = alphaAdjusted)
+
+#Amulgamate p.values with the biomarker
+p.values <- data.table(Biomarker = biomarkerNames,
+                       C1 = do.call(rbind,list1)) 
+
+
+#Join p.values from alpha and adjusted alpha
+p.values <- p.values[p.valuesTest1, on = .(Biomarker)]
+
+#Remaning the columns
+setnames(p.values, 2:3, c("p.values of alpha", "p.values of adjusted alpha"))
 
 #Display the table
-kable(p.values, caption = "p.vales for each hypothesis test")
+kable(p.values, caption = "p.values for each hypothesis test")
+
+#Extract the biomarkers that were rejected
+rejectedBiomarkersTest2 <- p.values[`p.values of adjusted alpha` < alphaAdjusted,Biomarker,]
 ```
 
-```{r Ho rejection table, echo=FALSE, warning=FALSE, message=FALSE}
-#Redo the table names since they all have the same name
-setnames(p.values, c(2:4), c("C1", "C2", "C3"))
+We will now run the test again with the $\alpha_{adjusted}$ and reject null hypotheses when the p.value is below the $\alpha_{adjusted}$ value. The table 7 compares p.values from both hypotheses tests($\alpha = 0.5$ and $\alpha_{adjusted}$ = `r alphaAdjusted`). The results shows that with the Bonferroni Correction, L-8, VEGF-A, TGF-beta-1, CXCL1 and CSF-1 reject the null hypotheses. Using this results we can conclude that these biomarkers can be used to understand the patient's pain level. 
 
-p.values.temp <- as.data.frame(p.values)
+# 5 Question 2: Regression modelling
 
-#Changing the numbers into accept and reject variables
-p.values[, `:=` (C1 = factor(ifelse(C1 < alpha, "Reject", "Accept")),
-                 C2 = factor(ifelse(C2 < alpha, "Reject", "Accept")),
-                 C3 = factor(ifelse(C3 < alpha, "Reject", "Accept")))]
+  In section 2.2.1 we were able to find that both datasets displayed some sort of correlation. We will now build a model to predict VAS at month 12 using biomarkers at inclusion and covariates as explanatory variables. The model will be trained on 80% of data and it will be tested on the 20% of the data(out of sample).
+  
+## 5.1 Model Description
 
-setnames(p.values, c("C1","C2","C3"), c("Week 0 and Week 6", "Week 6 and Week 52", "Week 0 and Week 52"))
+```{r clearning data, echo=FALSE}
+#Remove columns that are not required for regression modeling
+covariateData[,`:=` (PainDiff = NULL, Improved = NULL, Male = factor(ifelse(Sex == "Male", 1,0)), Smoker = factor(ifelse(Smoker == "Yes",1,0)), Sex = NULL)]
 
-kable(p.values, caption = "Acception of p.values")
-#datatable(p.values) %>% formatStyle(
-#  'V6',
-#  backgroundColor = styleEqual(c(0, 1), c('gray', 'yellow'))
-#)
 
+#Rearrange the columns
+setcolorder(covariateData, c("PatientID", "Age", "Male", "Smoker","VAS.Inclusion", "VAS.12Months"))
+
+#Left join data
+mergedData <- covariateData[biomarkerData, on = .(PatientID)]
+
+#Extract only week 0 of the data
+mergedData <- mergedData[WeeksObs == 0]
+
+mergedData[,`:=` (WeeksObs = NULL, PatientID = NULL)]
+
+#Remove NAs
+mergedData <- mergedData[complete.cases(mergedData),]
+#Reaggraning the columns
+colNames <- colnames(mergedData)
+colNames <- colNames[-which(colNames == "VAS.12Months")]
+colNames <- c(colNames, "VAS.12Months")
+
+#Reaggrange the data.table
+setcolorder(mergedData, colNames)
 ```
 
-# Interpretation of the results from the table
+* Explnatory variables : There are `r ncol(mergedData)-1` number of explanatory variables in the data set. They are Age,
+Male, Smoker, VAS.Inclusion, IL-8, VEGF-A, OPG, TGF-beta-1, IL-6, CXCL9, CXCL1, IL-18 and CSF-1. Both "Sex" and "Smoker" variables are categorical and the rest are numerical variables. These variables are represented by $X_1,X_2,...X_{13}$
 
-#Conclusion
+* Response variable: `r colnames(mergedData)[ncol(mergedData)]` is a numerical variable which we will try to predict using the explanatory variables.
 
-# Q3 a
-Potential problem of multiple testing
-Calculate the probability of making at least one type I error assuming that your tests are independent and that all null hypotheses are true.
+\vspace{30pt}
 
-#Q3 b
-Bonferroni correction:
-  What it is used for?
-  How to use it
-  Redo the test using this method
-                        
-                        
-                        
-                        
+* General formula: 
+
+$y = \beta_0 + \beta_{Age}X_1 + \beta_{Male}X_2 + \beta_{Smoker}X_3 + \beta_{VAS.inclusion}X_4 + \beta_{IL-8}X_5 + \beta_{VEGF-A}X_6 + \beta_{OPG}X_7 + \beta_{TGF-beta-1}X_8 + \beta_{IL-6}X_9 + \beta_{CXCL9}X_{10} + \beta_{CXCL1}X_{11} + \beta_{IL-18}X_{12} + \beta_{CSF-1}X_{13}$
+
+\vspace{20pt}
+
+The $\beta$ values from training data are presented in table 8. These will be substituted in the general formula above to predict the y value (VAS.12Months). 
+
+```{r split and model, echo=FALSE}
+#Splitting the data into train and test data set
+set.seed(5)
+train_i <- sample(1:NROW(mergedData), size = round(0.8 * NROW(mergedData)), replace = FALSE)
+y_trn <- mergedData[train_i, ]
+y_test <- mergedData[-train_i, ]
+
+#Linear modeling
+mod1 <- lm(`VAS.12Months`~., y_trn)
+
+#Covering the parameters into a table
+fm1.table <- xtable(mod1)
+#Renaming some rows - happens to be a bug which is adding 1 infront of categorical variables
+rownames(fm1.table)[3:4] <- c("Male", "Smoker")
+#Rename the first column
+colnames(fm1.table)[1] <- "beta"
+#Print the table
+kable(fm1.table, caption = "Model description")
+```
+
+## 5.2 Model Fit
+
+* Residual Standard Error: `r round(summary(mod1)$sigma,2)`
+
+* R-Squared: `r round(summary(mod1)$r.squared,2)`
+
+* Adjusted R-Squared: `r round(summary(mod1)$adj.r.squared,2)`
+
+According to the table 9, VAS.Inclusion, OPG and IL-6 displaying a statistically significant relationship at the p < `r alpha` cut-off level. According to the R-squared value, the regression explains `r paste0(round(summary(mod1)$r.squared,2)*100,"%")` of the variablity of the y[[3]](https://www.springer.com/gp/book/9781461403906). Based on figure 7, the residuals does not display any sign of Normal distribution. Also according figure 8 the residuals seems to be independent. Figure 9 assures that there are no patterns between residuals and fitted values.
+
+```{r modelfit graph, echo = FALSE, message=FALSE, warning=FALSE, comment=NA}
+#
+res <- as.data.frame(mod1$residuals)
+colnames(res) <- "Residuals"
+
+ggplot(res, aes(x = Residuals)) +
+  geom_histogram(fill = "#FF9999", colour="black") +
+  labs(caption= "Fig 7: Residual histogram") +
+  theme(plot.caption = element_text(hjust = 0), text = element_text(size=16))
+
+g1 <- ggplot(res, aes(x = 1:nrow(res),y = Residuals)) + 
+  geom_point() +
+  xlab("Index") +
+  ylab("Residuals") +
+  labs(caption= "Fig 8: Residual scatter plot") +
+  theme(plot.caption = element_text(hjust = 0), text = element_text(size=16))
+
+df <- augment(mod1)
+
+g2 <- ggplot(df, aes(x = .fitted, y = .resid)) + 
+  geom_point() +
+  xlab("Fitted values") +
+  ylab("Residuals") +
+  labs(caption= "Fig 9: Residuals vs fitted values") +
+  theme(plot.caption = element_text(hjust = 0), text = element_text(size=16))
+
+grid.arrange(g1,g2)
+```
+
+We run build the prediction model again using only  VAS.Inclusion, OPG and IL-6 as the explanatory variables. Therefore our new equation would be:
+
+
+$y = \beta_0 + \beta_{VAS.Inclusion}X_1 + \beta_{OPG}X_2 + \beta_{IL-6}X_3$
+
+Model fit parameters are calculated again using the latest formula and results are displayed in table 9.
+
+```{r redo-with-new cols, echo=FALSE}
+#Extracting the columns that have statistical significance
+y_trainData <- y_trn[,c("VAS.Inclusion", "OPG","IL-6", "VAS.12Months")]
+
+#Linear modeling
+mod2 <- lm(`VAS.12Months`~., y_trainData)
+
+#Covert mod2 to a table
+fm2.table <- xtable(mod2)
+
+#Rename the first column
+colnames(fm2.table)[1] <- "beta"
+#Print the table
+kable(fm2.table, caption = "Model description")
+```
+
+Summary of the model fit:
+
+* Residual Standard Error: `r round(summary(mod2)$sigma,2)`
+
+* R-Squared: `r round(summary(mod2)$r.squared,2)`
+
+* Adjusted R-Squared: `r round(summary(mod2)$adj.r.squared,2)`
+
+Based on the results, the new Residual Standard Error and Adjusted R-Squared displayed some improvement, but not significant. The latest R-Squared is lower than previously calculated R-Squared value. R-Squared value increase when we add more explanatory variable. Since the new equation contains less explanatory variables compared to previous formula, the R-Squared value is reduced.    
+
+## 5.3 Testing the Model (out of sample)
+
+VAS.Inclusion, OPG and IL-6 will be used as explanatory variables to test the model as these variables displayed statistical significance and improvement in model fit. 
+ 
+```{r test the model, echo=FALSE}
+y_hat1 <- predict(mod1, y_test)
+y_hat2 <- predict(mod2, y_test)
+
+
+y <- data.table(y.hat.1 = y_hat1, y.hat.2 = y_hat2, y = y_test[,VAS.12Months])
+
+RSS1 <- sum((y$y - y$y.hat.1)^2)
+RSS2 <- sum((y$y - y$y.hat.2)^2)
+
+ggplot(y, aes(x = y, y=y.hat.2)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = "red") +
+  xlab("Expected value") +
+  ylab("Predicted value") +
+  labs(caption= "Fig 10: Predicted value vs expected value") +
+  theme(plot.caption = element_text(hjust = 0), text = element_text(size=16))
+```
+
+The regression model appears to be a weak predictor. According to figure 10, the points are dispersed and does not follow a pattern. Ideally the scatter plot should be closely following the red line. Residual Sum of Squares (RSS) is `r round(RSS2,2)`. If we were to run this test with all the variables, the RSS would result in `r round(RSS1,2)`. 
+
+
+## 5.4 Conclusion 
+In conclusion, the linear model we derived in section 5.2 is not useful to predict VAS at 12 months. Linear model with all 13 variables had a lower RSS compared to the linear model with only statistically significant variables. The statistical significane of the each explanatory variables change significally depending on the selected training data. Maybe more training data might give us a model that can predict with better accuracy. It is also possible that these variables could have no linear relationship. 
+
+
+# 6 Final Remarks
+
+In this paper, we were able to identify the biomarkers that are associated with pain level in the patients. Since the probability of commiting type I error increases with multiple testing, the biomarkers were identified using Bonferroni Correction method. Biomarkers IL-8, VEGF-A, TGF-beta-1, CXCL1 and CSF-1 displayed statistical significance in the test. Therefore it can be concluded that these biomarkers can be tested to understand the pain level of a patient. 
+
+The linear regression prediction model was weaker in prediction. VAS.Inclusion, OPG and IL-6 were used as the explanatory variables to build the linear regression model. Eventhough these variables displayed statistical significance, their RSS and Adjusted R-Squared values were not far off from the model with all 13 variables. It maybe possible that these explanatory variables might have non-linear relationship or sample size of training data was not adequate to build a better model. The current results may not be favourable, but the future research may include non-linear prediction model to provide more accuracy.
+
+# References
+
+[1] Shaffer J. "Multiple Hypothesis Testing" Annual Rev. Physchol, 46 (1995), 561-584. 
+
+[2] Bangdiwala S. "Multiple Hypothesis Testing" International Journal of Injury Control and Safety Promotion, 24:1 (2017), 140-142.
+
+[3] Devore J. and Berk K. "Modern Mathematical Statistics With Applications" Second edition, 2012, 707-710.
+
+[4] Folsentein J. "Lecture 9: Multiple tests, Bonferroni correction, FDR" lecture notes, Washington University, delivered 2011.
+
+[5] Goldman M. "Statistics for Bioinformatic" lecture notes, STATC141, UC Berkeley, delieverd 2008 Spring.
+
+[6] Sedgwick P. "Multiple hypothesis testing and Bonferroni’s correction" BMJ, 349 (2014), g6284.
+
+[7] Akey J. "Lecture 10: Multiple Testing" lecture notes, Washington University, delievered 2008 April.
+
+[8] Fan Z. "Lecture 11: Testing Multiple Hypotheses" lecture notes, STATS 200, Stanford University, delievered 2016 Fall.
+
+[9] Austin S, Dialsingh I and Altman N. "Mutiple Hypothesis Testing: A Review" Journal of the Indian Society of Agricultural Statistics, 68 (2014), 303-314.
+
+[10] Teetor P. "R Cookbook" First edition, 2011
+
+[11] Chang W. "R Graphics Cookbook" First edition, 2012
+
+
+# Appendix
+
+```{r load data from folder, eval = FALSE, warning=FALSE, message = FALSE}
+#name the data files
+biomarkerFile <- "biomarkers.xlsx"
+covariateFile <- "covariates.xlsx"
+
+#Set file paths
+biomarkerFilePath <- paste0(getwd(),"/data/",biomarkerFile)
+covariateFilePath <- paste0(getwd(),"/data/",covariateFile)
+
+#Read the files
+biomarkerData <- read_xlsx(biomarkerFilePath)
+covariateData <- read_xlsx(covariateFilePath)
+
+#Convert to data.table
+biomarkerData <- as.data.table(biomarkerData)
+covariateData <- as.data.table(covariateData)
+```
+
+```{r exploring biomarker data, eval = FALSE}
+#Number of observations in raw file
+BioMarkerNumOfObservationsRaw <- nrow(biomarkerData)
+
+#Sample display of the raw file
+kable(biomarkerData[1:5,], caption = " Biomarker raw data")
+
+```
+```{r remove NAs in biomarker, eval = FALSE}
+#Table with NAs in the data
+kable(biomarkerData[, lapply(.SD, function(x) sum(is.na(x))), 
+                    .SDcols = 1:ncol(biomarkerData)], 
+      caption = "Missing data in Biomarker dataset")
+
+#Remove rows that contains NA
+biomarkerData <- na.omit(biomarkerData)
+```
+
+```{r exploring covariate data, eval = FALSE}
+#Number of observations from Covariate data
+CovNumOfObservationsRaw <- nrow(covariateData)
+
+#Sample display of covariate data
+kable(covariateData[1:5,], caption = " Covariates raw data")
+```
+
+```{r remove NAs in covariate data, eval = FALSE}
+#Summary table of NAs in the data
+kable(covariateData[,lapply(.SD, function(x) sum(is.na(x))), 
+                    .SDcols = 1:ncol(covariateData)], 
+      caption = "Missing data in Covariate dataset")
+
+#Remove the rows that contains NAs
+covariateData <- na.omit(covariateData)
+
+#Convert PatientID into
+covariateData[,PatientID := factor(PatientID)]
+```
+
+```{r cleaning covariate data, eval = FALSE}
+#Change the column names of the data
+setnames(covariateData, c("Sex (1=male, 2=female)", 
+                          "Smoker (1=yes, 2=no)",
+                          "VAS-at-inclusion", 
+                          "Vas-12months"), 
+         c("Sex", "Smoker", "VAS.Inclusion", "VAS.12Months"))
+
+#Saving the names of the columns
+covariateColNames <- names(covariateData)
+
+#Change the Sex and Smoker columns from 1 and 2 into corresponding categorical variable
+covariateData[,Sex := factor(ifelse(Sex == 1, "Male", "Female"))]
+covariateData[,Smoker := factor(ifelse(Smoker == 1, "Yes", "No"))]
+
+#Reshape the data in order to plot easily
+covariateDataMelt <- melt(covariateData, id.vars = c("PatientID", "Age", 
+                                                     "Sex", "Smoker"))
+```
+
+```{r simple analysis covariate data, eval = FALSE, message=FALSE}
+#Plot number of smokers in each age group
+g1 <- ggplot(data = covariateData, aes(x = Age)) +
+  geom_bar(aes(fill = Smoker)) + 
+  xlab("Age") +
+  ylab("Count") +
+  labs(caption= "Fig 1: number of smokers in each Age group") +
+  theme(plot.caption = element_text(hjust = 0))
+
+g2 <- ggplot(data = covariateData, aes(x = Age)) +
+  geom_bar(aes(fill = Sex)) +
+  xlab("Age") +
+  ylab("Count") +
+  labs(caption= "Fig 2: Different sex in each age group") +
+  theme(plot.caption = element_text(hjust = 0))
+
+grid.arrange(g1,g2,ncol = 2)
+```
+
+```{r covariates-data-VAS-comparrison, eval = FALSE, message=FALSE, comment=NA, fig.width=4, fig.height=4}
+#Box plot of VAS at inclusion and VAS at months
+ggplot(covariateDataMelt, aes(x = variable, y = value)) +
+  geom_boxplot(fill = "#4271AE") +
+  xlab("VAS") +
+  ylab("VAS score") + 
+  labs(caption= "Fig 3: Comparing VAS at inclusion and at 12 months") +
+  theme(plot.caption = element_text(hjust = 0))
+```
+
+```{r covariate-data-VAS-comparrison-Sex, eval = FALSE, message=FALSE, comment=NA}
+#VAS comparrison for sex
+VAS.ComparrisonSexGraph <- ggplot(covariateDataMelt, 
+                                  aes(x = variable, y = value, fill = Sex)) +
+  geom_boxplot() +
+  xlab("VAS") +
+  ylab("VAS score") + 
+  labs(caption= "Fig 4: Comparing VAS on different sex") +
+  theme(plot.caption = element_text(hjust = 0), text = element_text(size=10))
+
+#VAS comparrison for smokers
+VAS.ComparrisonSmokersGraph <- ggplot(covariateDataMelt, aes(x = variable, 
+                                                             y = value, 
+                                                             fill = Smoker)) +
+  geom_boxplot() +
+  xlab("VAS") +
+  ylab("VAS score") + 
+  labs(caption= "Fig 5: Comparing VAS on smokers") +
+  theme(plot.caption = element_text(hjust = 0), text = element_text(size=10))
+
+#Plpot the last two graphs side by side
+grid.arrange(VAS.ComparrisonSexGraph,VAS.ComparrisonSmokersGraph,ncol = 2)
+```
+
+```{r Biomarker-data-cleaning, eval = FALSE}
+#Extract the biomarkers 
+biomarkerNames <- colnames(biomarkerData)[2:ncol(biomarkerData)]
+#Extract the PatientID from Biomarker Column. Every character before the "-"
+biomarkerData[,PatientID :=as.factor(sub("\\-.*", "", biomarkerData$Biomarker))]
+#Extracting the characters right of "-" on Biomarker column
+extractedTime <- sub(".*-", "", biomarkerData$Biomarker)
+#Extract the number from the previous string
+extractedTime <- gsub("[^0-9.]", "",  extractedTime)
+#Replace 12 months with 52 weeks
+extractedTime[which(extractedTime == 12)] <- 52
+#Create a new column called WeeksObs which contains the extracted time
+biomarkerData[,WeeksObs := factor(extractedTime, levels = c("0","6","52"))]
+#Re-arrange the columns
+biomarkerData <- setcolorder(biomarkerData, c("PatientID", "WeeksObs", biomarkerNames))
+#Remove biomarker column
+biomarkerData[,Biomarker := NULL]
+#Table of the biomarkerData
+kable(head(biomarkerData,10), 
+      caption = "Biomarker data after seperating the patient ID and week of observation")
+```
+
+```{r Biomarker-boxplot, eval = FALSE, fig.width=10, fig.height=10}
+#Reshape the data for ease of plotting
+biomarkerDataMelt <- melt(biomarkerData, id.vars = c("PatientID", "WeeksObs"))
+#Biomarker box plot of each biomarker at each week
+ggplot(data = biomarkerDataMelt, aes(x = WeeksObs, y = value)) + 
+  geom_boxplot(fill = "#FFD700") +
+  facet_wrap(~variable, scales = "free") +
+  xlab("Week of Observation") +
+  ylab("Biomarker level") + 
+  labs(caption= "Fig 6: Biomarker value over the course of week of observation") +
+  theme(plot.caption = element_text(hjust = 0), text = element_text(size=16))
+```
+
+```{r covariate-VAS-difference, eval = FALSE, message=FALSE}
+#Create a new column to get the difference of VAS at inclusion and 12 mos
+covariateData[,PainDiff := VAS.Inclusion - VAS.12Months]
+
+VAS.improvement <- covariateData[,Improved := ifelse(PainDiff > 0,
+                                                     "Pain improved",
+                                                     "Pain did not improve")]
+
+painImproved <- length(VAS.improvement$PainDiff > 0)
+```
+```{r merging biomarker and covariates, eval = FALSE, message = FALSE}
+#Left Join on PatientID
+mergedCovBioDT <- covariateData[biomarkerData, on = .(PatientID)]
+#Count number of observation for each PatientID 
+mergedCovBioDT <- mergedCovBioDT[,Count := .N,by = PatientID]
+#Exclude any PatientID that does not contain 3 different weeks of observation
+mergedCovBioDT <- mergedCovBioDT[Count == 3 & Improved == "Pain improved",]
+#Remove the column Count and Improved
+mergedCovBioDT[,`:=`(Count = NULL, Improved = NULL)]
+#Number of patients to conduct hypothesis test
+numOfPatientsForTest <- length(unique(mergedCovBioDT$PatientID))
+```
+
+```{r seperate by weeks, eval = FALSE, message=FALSE}
+#Seperate biomarkers according to week of observation
+
+#Seperate week 0
+Week0 <- mergedCovBioDT[WeeksObs == 0]
+#Remove unwanted columns
+Week0 <- Week0[,`:=`(PatientID = NULL, Age = NULL, Sex = NULL, Smoker = NULL, 
+                     VAS.Inclusion = NULL, VAS.12Months = NULL, 
+                     PainDiff = NULL, WeeksObs = NULL)]
+
+#Seperate week 6
+Week6 <- mergedCovBioDT[WeeksObs == 6]
+#Remove unwanted columns
+Week6 <- Week6[,`:=`(PatientID = NULL, Age = NULL, Sex = NULL, Smoker = NULL, 
+                     VAS.Inclusion = NULL, VAS.12Months = NULL, 
+                     PainDiff = NULL, WeeksObs = NULL)]
+
+#Seperate week 52
+Week52 <- mergedCovBioDT[WeeksObs == 52]
+#Remove unwanted columns
+Week52 <- Week52[,`:=`(PatientID = NULL, Age = NULL, Sex = NULL, Smoker = NULL, 
+                       VAS.Inclusion = NULL, VAS.12Months = NULL, 
+                       PainDiff = NULL, WeeksObs = NULL)]
+```
+
+```{r run t-test, eval = FALSE, message=FALSE}
+t.test.Biomarkers <- function(data1,data2, biomarker,alpha = 0.05,...) {
+  #Extract the data of the biomarker from both data sets as a vector
+  data1 <- data1[, get(biomarker)]
+  data2 <- data2[, get(biomarker)]
+  #Calculate the confidence interval
+  confInterval <- 1-alpha
+  #Run the t-test 
+  res <- t.test(data1, data2, alternative = "two.sided", 
+                paired = TRUE, conf.level = confInterval)
+  #Extract the p.value
+  pValue <- res$p.value
+  #return p.value
+  return(pValue)
+}
+
+alpha <- 0.05
+#Running t-test for different combination of weeks for each biomarker
+list1 <- lapply(biomarkerNames, FUN = t.test.Biomarkers, 
+                data1 = Week0, data2 = Week52, alpha = alpha)
+
+#Amulgamate p.values with the biomarker
+p.values <- data.table(Biomarker = biomarkerNames, C1 = do.call(rbind,list1)) 
+
+#Remaning the columns
+setnames(p.values, c("C1.V1"), c("Week 0 and Week 52"))
+
+#Biomarker that have p.value lower than alpha
+rejectedBiomarkersTest1 <- p.values[`Week 0 and Week 52` < alpha,Biomarker]
+```
+
+```{r display p.values, eval = FALSE}
+#Display the table
+kable(p.values, caption = "p.values for each hypothesis test")
+```
+
+```{r calculate Pr of Type I error, eval = FALSE, message=FALSE, warning=FALSE}
+#Calculating the pr of at least 1 type I error
+Pr <- (1- alpha)^nrow(p.values)
+```
+
+```{r alpha-adjusted, eval = FALSE, message= FALSE, warning=FALSE}
+alphaAdjusted = alpha/nrow(p.values)
+```
+```{r Bonferroni-t.test-redo, eval = FALSE}
+#Saving the p.values from test into a new data.frame
+p.valuesTest1 <- as.data.frame(p.values)
+
+#Running t-test for different combination of weeks for each biomarker
+list1 <- lapply(biomarkerNames, FUN = t.test.Biomarkers, 
+                data1 = Week0, data2 = Week6, alpha = alphaAdjusted)
+
+#Amulgamate p.values with the biomarker
+p.values <- data.table(Biomarker = biomarkerNames,
+                       C1 = do.call(rbind,list1)) 
+
+
+#Join p.values from alpha and adjusted alpha
+p.values <- p.values[p.valuesTest1, on = .(Biomarker)]
+
+#Remaning the columns
+setnames(p.values, 2:3, c("p.values of alpha", "p.values of adjusted alpha"))
+
+#Display the table
+kable(p.values, caption = "p.values for each hypothesis test")
+
+#Extract the biomarkers that were rejected
+rejectedBiomarkersTest2 <- p.values[`p.values of adjusted alpha` < alphaAdjusted,Biomarker,]
+```
+
+```{r clearning data for regression, eval = FALSE}
+#Remove columns that are not required for regression modeling
+covariateData[,`:=` (PainDiff = NULL, Improved = NULL, 
+                     Male = factor(ifelse(Sex == "Male", 1,0)), 
+                     Smoker = factor(ifelse(Smoker == "Yes",1,0)), Sex = NULL)]
+
+
+#Rearrange the columns
+setcolorder(covariateData, c("PatientID", "Age", "Male", 
+                             "Smoker","VAS.Inclusion", "VAS.12Months"))
+
+#Left join data
+mergedData <- covariateData[biomarkerData, on = .(PatientID)]
+
+#Extract only week 0 of the data
+mergedData <- mergedData[WeeksObs == 0]
+
+#Remove unwanted columns
+mergedData[,`:=` (WeeksObs = NULL, PatientID = NULL)]
+
+#Remove NAs
+mergedData <- mergedData[complete.cases(mergedData),]
+#Reaggraning the columns
+colNames <- colnames(mergedData)
+colNames <- colNames[-which(colNames == "VAS.12Months")]
+colNames <- c(colNames, "VAS.12Months")
+
+#Reaggrange the data.table
+setcolorder(mergedData, colNames)
+```
+
+```{r split and model into train and test, eval = FALSE}
+#Splitting the data into train and test data set
+set.seed(5)
+train_i <- sample(1:NROW(mergedData), size = round(0.8*NROW(mergedData)), 
+                  replace = FALSE)
+
+y_trn <- mergedData[train_i, ]
+
+y_test <- mergedData[-train_i, ]
+
+#Linear modeling
+mod1 <- lm(`VAS.12Months`~., y_trn)
+
+#Covering the parameters into a table
+fm1.table <- xtable(mod1)
+#Renaming some rows - happens to be a bug which is adding 1 infront of categorical variables
+rownames(fm1.table)[3:4] <- c("Male", "Smoker")
+#Rename the first column
+colnames(fm1.table)[1] <- "beta"
+#Print the table
+kable(fm1.table, caption = "Model description")
+```
+
+```{r examining modelfit graph, eval = FALSE, message=FALSE, warning=FALSE, comment=NA}
+#Extract residuals
+res <- as.data.frame(mod1$residuals)
+colnames(res) <- "Residuals"
+
+#Plot histogram of the residuals
+ggplot(res, aes(x = Residuals)) +
+geom_histogram(fill = "#FF9999", colour="black") +
+labs(caption= "Fig 7: Residual histogram") +
+theme(plot.caption = element_text(hjust = 0), text = element_text(size=16))
+
+#Scatter plot of residuals
+g1 <- ggplot(res, aes(x = 1:nrow(res),y = Residuals)) + 
+geom_point() +
+xlab("Index") +
+ylab("Residuals")
+labs(caption= "Fig 8: Residual scatter plot") +
+theme(plot.caption = element_text(hjust = 0), text = element_text(size=16))
+
+#Extract residuals and fitted values
+df <- augment(mod1)
+
+#Plot residuals vs fitted values
+g2 <- ggplot(df, aes(x = .fitted, y = .resid)) + 
+geom_point() +
+xlab("Fitted values") +
+ylab("Residuals") +
+labs(caption= "Fig 9: Residuals vs fitted values") +
+theme(plot.caption = element_text(hjust = 0), text = element_text(size=16))
+
+#Plot two graphs together
+grid.arrange(g1,g2, nrow = 2)
+```
+
+```{r redo-with-selected-cols, eval = FALSE}
+#Extracting the columns that have statistical significance
+y_trainData <- y_trn[,c("VAS.Inclusion", "OPG","IL-6", "VAS.12Months")]
+
+#Linear modeling
+mod2 <- lm(`VAS.12Months`~., y_trainData)
+
+#Covert mod2 to a table
+fm2.table <- xtable(mod2)
+
+#Rename the first column
+colnames(fm2.table)[1] <- "beta"
+#Print the table
+kable(fm2.table, caption = "Model description")
+```
+
+```{r out of sample test, eval = FALSE}
+y_hat1 <- predict(mod1, y_test)
+y_hat2 <- predict(mod2, y_test)
+
+
+y <- data.table(y.hat.1 = y_hat1, y.hat.2 = y_hat2, y = y_test[,VAS.12Months])
+
+RSS1 <- sum((y$y - y$y.hat.1)^2)
+RSS2 <- sum((y$y - y$y.hat.2)^2)
+
+ggplot(y, aes(x = y, y=y.hat.2)) +
+geom_point() +
+geom_abline(slope = 1, intercept = 0, color = "red") +
+xlab("Expected value") +
+ylab("Predicted value") +
+labs(caption= "Fig 10: Predicted value vs expected value") +
+theme(plot.caption = element_text(hjust = 0), text = element_text(size=16))
+```
