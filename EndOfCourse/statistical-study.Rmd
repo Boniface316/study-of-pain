@@ -1,5 +1,5 @@
 ---
-title: "Statistical Study of Backpain"
+title: "Statistical Study of Pain"
 author: "s1899215"
 date: "March 6, 2019"
 output:
@@ -20,7 +20,7 @@ library(broom)
 ```
 # 1 Introduction
 
- The purpose of this study is to understand the medical conditions causing the pain. Two seperate datasets were gathered for this study. One dataset contains the general details of patients and a survey rating their pain at inclusion and at 12 month follow-up. This dataset is called "Covariates". The other dataset contains the levels of certain proteins taken from the blood sample of the patients. This dataset is called "Biomarkers". These two datasets are analyzed in order to further understand the relationship between biomarkers and pain.
+ The purpose of this study is to understand the medical conditions causing the pain. Two seperate data sets were gathered for this study. One data set contains the general details of patients and a survey rating their pain at inclusion and at 12 month follow-up. This data set is called "Covariates". The other data set contains the levels of certain proteins taken from the blood sample of the patients. This data set is called "Biomarkers". These two data sets are analyzed in order to further understand the relationship between biomarkers and pain.
 
 
 ```{r load data, echo=FALSE, warning=FALSE, message = FALSE}
@@ -50,18 +50,18 @@ kable(biomarkerData[1:5,], caption = " Biomarkers raw data")
 
 ```
 
-  Table 1 displays the first 5 rows of the Biomarkers data set. There are a total of `r BioMarkerNumOfObservationsRaw` observations and `r ncol(biomarkerData)` columns. Column 1 contains both the patient ID and the time(week) when the blood sample was tested. The other columns contain the protein levels from the blood sample.  
+  Table 1 displays the first 5 rows of the Biomarkers data set. There are a total of `r BioMarkerNumOfObservationsRaw` observations and `r ncol(biomarkerData)` columns. Column 1 contains both the patient ID and the time (week) when the blood sample was tested. The other columns contain the protein levels from the blood sample.  
 
 ```{r biomarker-NA, echo=FALSE}
 #Table with NAs in the data
 kable(biomarkerData[, lapply(.SD, function(x) sum(is.na(x))), 
-                    .SDcols = 1:ncol(biomarkerData)], caption = "Missing data in Biomarker dataset")
+                    .SDcols = 1:ncol(biomarkerData)], caption = "Missing data in Biomarker data set")
 
 #Remove rows that contains NA
 biomarkerData <- na.omit(biomarkerData)
 ```
   
-Table 2 summarizes the missing data in each column. Since missing data can prevent us from carrying on to the next step of analysis, we have removed any rows that are missing data. Total of `r BioMarkerNumOfObservationsRaw - nrow(biomarkerData)` rows were removed from Biomarkers dataset. 
+Table 2 summarizes the missing data in each column. Since missing data can prevent us from carrying on to the next step of analysis, we have removed any rows that are missing data. Total of `r BioMarkerNumOfObservationsRaw - nrow(biomarkerData)` rows were removed from Biomarkers data set. 
 
 \vspace{120pt}
 
@@ -81,7 +81,7 @@ Table 3 displays the first 5 rows of the Covariate data set. There are a total o
 ```{r patient data number of NAs, echo=FALSE}
 #Summary table of NAs in the data
 kable(covariateData[,lapply(.SD, function(x) sum(is.na(x))), 
-                    .SDcols = 1:ncol(covariateData)], caption = "Missing data in Covariate dataset")
+                    .SDcols = 1:ncol(covariateData)], caption = "Missing data in Covariate data set")
 
 #Remove the rows that contains NAs
 covariateData <- na.omit(covariateData)
@@ -368,7 +368,7 @@ p.values <- data.table(Biomarker = biomarkerNames,
 p.values <- p.values[p.valuesTest1, on = .(Biomarker)]
 
 #Remaning the columns
-setnames(p.values, 2:3, c("p.values of alpha", "p.values of adjusted alpha"))
+setnames(p.values, 2:3, c("p.values of adjusted alpha","p.values of alpha"))
 
 #Display the table
 kable(p.values, caption = "p.values for each hypothesis test")
@@ -377,7 +377,7 @@ kable(p.values, caption = "p.values for each hypothesis test")
 rejectedBiomarkersTest2 <- p.values[`p.values of adjusted alpha` < alphaAdjusted,Biomarker,]
 ```
 
-We will now run the test again with the $\alpha_{adjusted}$ and reject null hypotheses when the p.value is below the $\alpha_{adjusted}$ value. The table 7 compares p.values from both hypotheses tests($\alpha = 0.5$ and $\alpha_{adjusted}$ = `r round(alphaAdjusted,3)`). The results shows that with the Bonferroni Correction, L-8, VEGF-A, TGF-beta-1, CXCL1 and CSF-1 reject the null hypotheses. Using this results we can conclude that these biomarkers can be used to understand the patient's pain level. 
+We will now run the test again with the $\alpha_{adjusted}$ and reject null hypotheses when the p.value is below the $\alpha_{adjusted}$ value. The table 7 compares p.values from both hypotheses tests($\alpha = 0.5$ and $\alpha_{adjusted}$ = `r round(alphaAdjusted,3)`). The results shows that with the Bonferroni Correction, no null hypotheses were rejected. Using this results we can conclude that these biomarkers $\mu$ remained the same for all biomarkers. 
 
 # 5 Question 2: Regression modelling
 
@@ -423,7 +423,7 @@ Male, Smoker, VAS.Inclusion, IL-8, VEGF-A, OPG, TGF-beta-1, IL-6, CXCL9, CXCL1, 
 
 $y = \beta_0 + \beta_{Age}X_1 + \beta_{Male}X_2 + \beta_{Smoker}X_3 + \beta_{VAS.inclusion}X_4 + \beta_{IL-8}X_5 + \beta_{VEGF-A}X_6 + \beta_{OPG}X_7 + \beta_{TGF-beta-1}X_8 + \beta_{IL-6}X_9 + \beta_{CXCL9}X_{10} + \beta_{CXCL1}X_{11} + \beta_{IL-18}X_{12} + \beta_{CSF-1}X_{13}$
 
-\vspace{20pt}
+\vspace{10pt}
 
 The $\beta$ values from training data are presented in table 8. These will be substituted in the general formula above to predict the y value (VAS.12Months). 
 
@@ -489,7 +489,7 @@ g2 <- ggplot(df, aes(x = .fitted, y = .resid)) +
 grid.arrange(g1,g2)
 ```
 
-We built the prediction model again using only  VAS.Inclusion, OPG and IL-6 as the explanatory variables. Therefore our new equation would be:
+We built the prediction model again using only  VAS.Inclusion, OPG and IL-6 as the explanatory variables. Therefore our new equation is:
 
 
 $y = \beta_0 + \beta_{VAS.Inclusion}X_1 + \beta_{OPG}X_2 + \beta_{IL-6}X_3$
@@ -520,7 +520,7 @@ Summary of the model fit:
 
 * Adjusted R-Squared: `r round(summary(mod2)$adj.r.squared,2)`
 
-Based on the results, the new Residual Standard Error and Adjusted R-Squared displayed some improvement, but not significant. The latest R-Squared is lower than the previously calculated R-Squared value. R-Squared value increases when we add more explanatory variables. Since the new equation contains less explanatory variables compared to the previous formula, the R-Squared value is reduced.   
+Based on the results, the new Residual Standard Error and Adjusted R-Squared displayed some improvement, but not significant. The latest R-Squared is lower than the previously calculated R-Squared value. R-Squared value increases when we add more explanatory variables. Since the new formula contains less explanatory variables compared to the previous formula, the R-Squared value is reduced.   
 
 ## 5.3 Testing the Model (out of sample)
 
@@ -557,7 +557,7 @@ In conclusion, the linear model we derived in section 5.2 is not useful to predi
 # 6 Final Remarks
 
 
-In this paper, we were able to identify the biomarkers that are associated with patient pain levels. Since the probability of committing type I error increases with multiple testing, the biomarkers were identified using Bonferroni Correction method. Biomarkers IL-8, VEGF-A, TGF-beta-1, CXCL1 and CSF-1 displayed statistical significance in the test. Therefore, it can be concluded that these biomarkers can be tested to understand the pain level of a patient.
+In this paper, we were able to identify the biomarkers that are associated with patient pain levels. The hypothesis testing revealed that Biomarkers IL-8, VEGF-A, TGF-beta-1, CXCL1 and CSF-1 displayed statistical significance. Since the probability of committing type I error increases with multiple testing, Bonferroni Correction method was utilized reduce this probability. Bonferroni method failed to reject null hypotheses for all biomarkers.  
 
 The linear regression prediction model was weaker in prediction. VAS. Inclusion, OPG, and IL-6 were used as the explanatory variables to build the linear regression model. Even though these variables displayed statistical significance, their RSS and Adjusted R-Squared values were not far off from the model with all 13 variables. It maybe possible that these explanatory variables might have non-linear relationship, or the sample size of training data was not adequate to build a better model. The current results may not be favourable, but future research may include non-linear prediction models to provide more accuracy.
 
@@ -618,7 +618,7 @@ kable(biomarkerData[1:5,], caption = " Biomarker raw data")
 #Table with NAs in the data
 kable(biomarkerData[, lapply(.SD, function(x) sum(is.na(x))), 
                     .SDcols = 1:ncol(biomarkerData)], 
-      caption = "Missing data in Biomarker dataset")
+      caption = "Missing data in Biomarker data set")
 
 #Remove rows that contains NA
 biomarkerData <- na.omit(biomarkerData)
@@ -636,7 +636,7 @@ kable(covariateData[1:5,], caption = " Covariates raw data")
 #Summary table of NAs in the data
 kable(covariateData[,lapply(.SD, function(x) sum(is.na(x))), 
                     .SDcols = 1:ncol(covariateData)], 
-      caption = "Missing data in Covariate dataset")
+      caption = "Missing data in Covariate data set")
 
 #Remove the rows that contains NAs
 covariateData <- na.omit(covariateData)
