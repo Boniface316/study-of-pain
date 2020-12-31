@@ -1,6 +1,6 @@
 ---
 title: "Statistical Study of Pain"
-author: "s1899215"
+author: "Boniface Yogendran"
 date: "March 6, 2019"
 output:
   pdf_document: default
